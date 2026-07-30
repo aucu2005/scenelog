@@ -1,0 +1,70 @@
+# 오늘 직접 구현할 것 (7/31)
+
+뼈대는 전부 만들어져 있고 컴파일·기동도 확인됨. **핵심 3개만 채우면 인증이 완성된다.**
+
+## 순서
+
+### 1. `JwtProvider` — 테스트가 요구사항이다 ★ 여기부터
+파일: `src/main/java/com/scenelog/auth/JwtProvider.java`
+테스트: `src/test/java/com/scenelog/auth/JwtProviderTest.java` (지금 6개 전부 실패 = 정상)
+
+```
+.\gradlew.bat test --tests "com.scenelog.auth.JwtProviderTest" --console=plain
+```
+
+메서드 3개(`createToken` / `getUserId` / `isValid`)의 TODO 주석에 jjwt 0.12 API 사용법이 적혀 있다.
+**6개가 전부 초록이 되면 끝.**
+
+> 힌트: `isValid`는 `try { parse(token); return true; } catch (JwtException | IllegalArgumentException e) { return false; }`
+> 변조·만료·형식오류를 전부 false로 흡수하는 것이 목적이다. 클래스 맨 아래 `parse()` 메서드를 참고할 것.
+
+### 2. `AuthService` — 회원가입·로그인
+파일: `src/main/java/com/scenelog/auth/AuthService.java`
+
+TODO 주석의 단계를 따르면 된다. **보안 포인트 하나**: 로그인 실패 시
+"없는 계정"과 "비밀번호 틀림"을 구분해 응답하지 않는다(계정 열거 취약점).
+
+### 3. `JwtAuthenticationFilter` — 요청마다 인증 정보 심기
+파일: `src/main/java/com/scenelog/auth/JwtAuthenticationFilter.java`
+
+**계약**: principal에 `User` 엔티티를 넣어야 한다. 컨트롤러가 `@AuthenticationPrincipal User`로 받는다.
+`filterChain.doFilter(...)` 호출은 절대 지우지 말 것 (빠지면 모든 요청이 멈춘다).
+
+---
+
+## 완료 검증 (Swagger UI에서)
+
+앱 실행 후 http://localhost:8080/swagger-ui/index.html
+
+| # | 동작 | 기대 |
+|---|---|---|
+| 1 | `POST /api/auth/signup` (email/password 8자↑/nickname) | **201** |
+| 2 | 같은 이메일로 한 번 더 signup | **409** |
+| 3 | `POST /api/auth/login` 올바른 정보 | **200** + accessToken |
+| 4 | 잘못된 비밀번호로 login | **401** |
+| 5 | Swagger 우측 상단 **Authorize** → 토큰 붙여넣기 | — |
+| 6 | `GET /api/me/history` | **200** (빈 배열) |
+| 7 | `POST /api/admin/etl/run` | **403** (일반 유저는 관리자 아님) |
+
+7번까지 통과하면 오늘 목표(자격요건 6 — HTTP·인증/인가) 달성.
+
+### 앱 실행 방법
+```
+docker compose up -d
+.\gradlew.bat bootRun
+```
+`.env` 값이 환경변수로 주입되어야 한다. IntelliJ면 실행 구성에 EnvFile 플러그인으로 `.env` 지정,
+또는 PowerShell에서 실행 전 주입:
+```
+Get-Content .env | Where-Object { $_ -match '^\s*[A-Z_]+=' } | ForEach-Object { $kv = $_ -split '=', 2; [System.Environment]::SetEnvironmentVariable($kv[0].Trim(), $kv[1].Trim()) }
+```
+
+---
+
+## 알려진 개선거리 (오늘 안 해도 됨)
+
+- **인증 없는 요청이 401이 아니라 403을 반환한다.** Spring Security의 기본 동작이며,
+  `AuthenticationEntryPoint`를 등록하면 401로 바꿀 수 있다. HTTP 의미상 401이 맞으므로
+  여유가 생기면 고치고 **트러블슈팅 로그 소재로 쓸 것**.
+- `ScenelogApplicationTests.contextLoads()`는 `@SpringBootTest`라 **DB가 떠 있어야 통과**한다.
+  CI(8/6)에서는 이 테스트를 제외하거나 프로파일을 분리해야 한다.
