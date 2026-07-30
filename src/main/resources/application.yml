@@ -1,0 +1,43 @@
+# 시크릿은 이 파일에 쓰지 않는다 — 전부 환경변수 참조 (.env → IDE/셸 주입)
+# 로컬 기본값은 docker-compose.yml 의 기본값과 일치한다.
+
+spring:
+  application:
+    name: scenelog
+
+  datasource:
+    url: jdbc:postgresql://${POSTGRES_HOST:localhost}:5432/${POSTGRES_DB:scenelog}
+    username: ${POSTGRES_USER:scenelog}
+    password: ${POSTGRES_PASSWORD:scenelog}
+
+  jpa:
+    hibernate:
+      # 8일 범위의 실용 선택: 엔티티 기준 스키마 자동 반영.
+      # 한계 인지: 운영이라면 Flyway 등 마이그레이션 도구가 맞다 → docs/architecture.md 에 기록
+      ddl-auto: update
+    open-in-view: false
+
+  data:
+    mongodb:
+      uri: mongodb://${MONGO_HOST:localhost}:27017/${MONGO_DB:scenelog}
+    redis:
+      host: ${REDIS_HOST:localhost}
+      port: 6379
+
+tmdb:
+  api-key: ${TMDB_API_KEY:}
+  base-url: https://api.themoviedb.org/3
+
+jwt:
+  secret: ${JWT_SECRET:}
+  expiry-seconds: 3600   # Access Token 1시간, Refresh 없음 — 판단 근거는 §6/README
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health, info, metrics
+
+springdoc:
+  swagger-ui:
+    path: /swagger-ui.html
