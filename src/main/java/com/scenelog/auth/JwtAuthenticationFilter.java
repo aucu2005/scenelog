@@ -5,9 +5,13 @@ import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import lombok.RequiredArgsConstructor;
+import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
+import org.springframework.security.core.authority.SimpleGrantedAuthority;
+import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.web.filter.OncePerRequestFilter;
 
 import java.io.IOException;
+import java.util.List;
 
 /**
  * ★ 직접 구현 대상 3/3 — 요청마다 토큰을 읽어 인증 정보를 심는다.
@@ -54,7 +58,20 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
                                     HttpServletResponse response,
                                     FilterChain filterChain) throws ServletException, IOException {
 
-        // TODO: 위 1~5단계를 여기에 구현
+        String header = request.getHeader(HEADER);
+
+        if (header != null && header.startsWith(PREFIX)) {
+            String token = header.substring(PREFIX.length());
+
+            if (jwtProvider.isValid(token)) {
+                Long userId = jwtProvider.getUserId(token);
+                userRepository.findById(userId).ifPresent(user -> {
+                    var authorities = List.of(new SimpleGrantedAuthority(user.getRole().name()));
+                    var auth = new UsernamePasswordAuthenticationToken(user, null, authorities);
+                    SecurityContextHolder.getContext().setAuthentication(auth);
+                });
+            }
+        }
 
         filterChain.doFilter(request, response);
     }

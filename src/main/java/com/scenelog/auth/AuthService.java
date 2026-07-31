@@ -38,7 +38,18 @@ public class AuthService {
      */
     @Transactional
     public void signup(SignupRequest request) {
-        throw new UnsupportedOperationException("TODO: 직접 구현");
+        if (userRepository.existsByEmail(request.email())) {
+            throw new ApiException(HttpStatus.CONFLICT, "이미 가입된 이메일입니다");
+        }
+
+        User user = User.builder()
+                .email(request.email())
+                .passwordHash(passwordEncoder.encode(request.password()))
+                .nickname(request.nickname())
+                .role(Role.ROLE_USER)
+                .build();
+
+        userRepository.save(user);
     }
 
     /**
@@ -57,6 +68,15 @@ public class AuthService {
      */
     @Transactional(readOnly = true)
     public TokenResponse login(LoginRequest request) {
-        throw new UnsupportedOperationException("TODO: 직접 구현");
+        User user = userRepository.findByEmail(request.email())
+                .orElseThrow(() -> new ApiException(
+                        HttpStatus.UNAUTHORIZED, "이메일 또는 비밀번호가 올바르지 않습니다"));
+
+        if (!passwordEncoder.matches(request.password(), user.getPasswordHash())) {
+            throw new ApiException(HttpStatus.UNAUTHORIZED, "이메일 또는 비밀번호가 올바르지 않습니다");
+        }
+
+        String token = jwtProvider.createToken(user.getUserId(), user.getEmail(), user.getRole());
+        return TokenResponse.bearer(token, jwtProvider.getExpirySeconds());
     }
 }

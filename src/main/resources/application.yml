@@ -5,6 +5,12 @@ spring:
   application:
     name: scenelog
 
+  config:
+    # .env를 properties로 직접 읽는다 — IDE/gradlew 실행 시 환경변수 주입 불필요.
+    # optional: 이므로 파일이 없어도(CI 등) 실패하지 않고,
+    # 실제 OS 환경변수가 있으면 그쪽이 우선한다(EC2 배포 시 안전).
+    import: "optional:file:.env[.properties]"
+
   datasource:
     url: jdbc:postgresql://${POSTGRES_HOST:localhost}:5432/${POSTGRES_DB:scenelog}
     username: ${POSTGRES_USER:scenelog}

@@ -19,3 +19,6 @@
 - **추가**: GitHub 원격 연결 완료(github.com/aucu2005/scenelog, public). 인증·도메인 뼈대 구축 — 엔티티 3종(User·Content·WatchSession), Repository, DTO, 전역 예외 처리, Swagger JWT 설정, 콘텐츠/세션 CRUD. JWT 핵심 3개(JwtProvider·AuthService·JwtAuthenticationFilter)는 TODO 골격 + 실패 테스트 6개로 남김 → `docs/TODO-today.md` 참고.
 - **검증**: 컴파일 성공, 앱 기동 `/actuator/health` 200, Swagger 200, `/api/contents` 200, signup 501(미구현 명시), 잘못된 입력 400(검증 동작), 인증 필요 경로 403. JPA가 테이블 3개 생성 확인 — `users.password_hash`가 의도대로 `VARCHAR(100)`.
 - **판단 1건**: `JwtAuthenticationFilter`에 `@Component`를 붙이지 않고 `SecurityConfig`에서 직접 생성. 붙이면 Spring Boot가 서블릿 필터로도 자동 등록해 필터가 두 번 실행된다.
+- **JWT 3종 직접 구현 완료** (JwtProvider·AuthService·JwtAuthenticationFilter) — JwtProviderTest 6개 green.
+- **이슈/원인/대응**: 앱 기동 실패 `jwt.secret이 너무 짧습니다(0바이트)` / 원인: Spring은 `.env`를 자동으로 읽지 않는다 — IDE 실행 시 환경변수 미주입, `${JWT_SECRET:}`가 빈 기본값으로 해석됨. 생성자의 fail-fast 검사가 기동 시점에 잡아줌(없었으면 로그인 순간 원인불명 500) / 대응: `spring.config.import: optional:file:.env[.properties]` 한 줄로 Spring이 .env를 직접 읽게 함. OS 환경변수가 있으면 그쪽이 우선하므로 EC2 배포와도 충돌 없음.
+- **최종 검증 (day1 체크리스트)**: signup 201 · 중복 409 · login 200+토큰 · 틀린비번 401 · 토큰으로 me/history 200 · 일반유저 admin 403 · 변조토큰 403. **자격요건 6(인증/인가) 달성.**

@@ -1,6 +1,7 @@
 package com.scenelog.auth;
 
 import io.jsonwebtoken.Claims;
+import io.jsonwebtoken.JwtException;
 import io.jsonwebtoken.Jwts;
 import io.jsonwebtoken.security.Keys;
 import org.springframework.beans.factory.annotation.Value;
@@ -68,7 +69,17 @@ public class JwtProvider {
      * </ol>
      */
     public String createToken(Long userId, String email, Role role) {
-        throw new UnsupportedOperationException("TODO: 직접 구현 — JwtProviderTest를 통과시키세요");
+        Date now = new Date();
+        Date expiry = new Date(now.getTime() + expirySeconds * 1000);
+
+        return Jwts.builder()
+                .subject(String.valueOf(userId))
+                .claim("email", email)
+                .claim("role", role.name())
+                .issuedAt(now)
+                .expiration(expiry)
+                .signWith(key)
+                .compact();
     }
 
     /**
@@ -77,7 +88,8 @@ public class JwtProvider {
      * <p>TODO(직접 구현): parseSignedClaims로 Claims를 얻고 {@code Long.valueOf(claims.getSubject())} 반환
      */
     public Long getUserId(String token) {
-        throw new UnsupportedOperationException("TODO: 직접 구현 — JwtProviderTest를 통과시키세요");
+        Claims claims = parse(token);
+        return Long.valueOf(claims.getSubject());
     }
 
     /**
@@ -87,7 +99,12 @@ public class JwtProvider {
      * 에서 false를 반환한다. 변조·만료·형식오류를 모두 false로 흡수하는 것이 목적이다.
      */
     public boolean isValid(String token) {
-        throw new UnsupportedOperationException("TODO: 직접 구현 — JwtProviderTest를 통과시키세요");
+        try {
+            parse(token);
+            return true;
+        } catch (JwtException | IllegalArgumentException e) {
+            return false;
+        }
     }
 
     /** 위 메서드 구현 시 참고용 — 필요 없으면 지워도 된다. */
