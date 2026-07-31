@@ -26,6 +26,15 @@ public class GlobalExceptionHandler {
                 .body(ErrorResponse.of(e.getStatus().value(), e.getMessage()));
     }
 
+    /** 본문 파싱 실패 (JSON 문법 오류, 없는 enum 값 등) — 500이 아니라 400이어야 한다 */
+    @ExceptionHandler(org.springframework.http.converter.HttpMessageNotReadableException.class)
+    public ResponseEntity<ErrorResponse> handleUnreadable(
+            org.springframework.http.converter.HttpMessageNotReadableException e) {
+        return ResponseEntity.badRequest()
+                .body(ErrorResponse.of(HttpStatus.BAD_REQUEST.value(),
+                        "요청 본문을 해석할 수 없습니다 (JSON 형식·enum 값 확인)"));
+    }
+
     /** @Valid 검증 실패 — 어떤 필드가 왜 틀렸는지 details에 담아 준다 */
     @ExceptionHandler(MethodArgumentNotValidException.class)
     public ResponseEntity<ErrorResponse> handleValidation(MethodArgumentNotValidException e) {
