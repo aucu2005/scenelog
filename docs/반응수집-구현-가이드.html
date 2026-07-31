@@ -1,0 +1,331 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>반응 수집 + 시뮬레이터 구현 가이드 (신입용) — SceneLog</title>
+<style>
+  :root {
+    --bg: #ffffff; --fg: #1f2328; --muted: #656d76; --border: #d8dee4;
+    --code-bg: #f6f8fa; --accent: #0969da;
+    --warn-bg: #fff8c5; --warn-border: #d4a72c;
+    --ok-bg: #dafbe1; --ok-border: #2da44e;
+    --bad-bg: #ffebe9; --bad-border: #cf222e;
+    --tip-bg: #ddf4ff; --tip-border: #54aeff;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #0d1117; --fg: #e6edf3; --muted: #9198a1; --border: #30363d;
+      --code-bg: #161b22; --accent: #4493f8;
+      --warn-bg: #2d2412; --warn-border: #9e6a03;
+      --ok-bg: #0f2d18; --ok-border: #238636;
+      --bad-bg: #2d1315; --bad-border: #da3633;
+      --tip-bg: #0d2538; --tip-border: #316dca;
+    }
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; padding: 2.5rem 1.25rem 6rem; background: var(--bg); color: var(--fg);
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "Malgun Gothic",
+                 "Apple SD Gothic Neo", "Noto Sans KR", Roboto, sans-serif;
+    line-height: 1.75; font-size: 16px; word-break: keep-all; overflow-wrap: break-word;
+  }
+  main { max-width: 860px; margin: 0 auto; }
+  h1 { font-size: 1.85rem; line-height: 1.35; margin: 0 0 .5rem; padding-bottom: .6rem; border-bottom: 2px solid var(--border); }
+  h2 { font-size: 1.35rem; margin: 3rem 0 1rem; padding-bottom: .4rem; border-bottom: 1px solid var(--border); }
+  h3 { font-size: 1.08rem; margin: 2rem 0 .6rem; }
+  .subtitle { color: var(--muted); font-size: .9rem; margin: 0 0 2rem; }
+  .subtitle a { color: var(--accent); }
+  p, li { margin: .6rem 0; }
+  ul, ol { padding-left: 1.4rem; }
+  a { color: var(--accent); }
+  code {
+    background: var(--code-bg); padding: .15em .4em; border-radius: 5px;
+    font-family: "Cascadia Code", Consolas, "D2Coding", "SF Mono", Menlo, monospace; font-size: .875em;
+  }
+  pre { background: var(--code-bg); border: 1px solid var(--border); border-radius: 8px; padding: 1rem; overflow-x: auto; line-height: 1.55; }
+  pre code { background: none; padding: 0; font-size: .845rem; }
+  .table-wrap { overflow-x: auto; margin: 1rem 0; }
+  table { border-collapse: collapse; width: 100%; font-size: .93rem; }
+  th, td { border: 1px solid var(--border); padding: .55rem .75rem; text-align: left; vertical-align: top; }
+  th { background: var(--code-bg); font-weight: 600; }
+  blockquote { margin: 1.2rem 0; padding: .1rem 1rem; border-left: 4px solid var(--border); color: var(--muted); }
+  .box { border-radius: 8px; padding: .9rem 1.1rem; margin: 1.2rem 0; border-left: 4px solid; }
+  .box p:first-child { margin-top: 0; } .box p:last-child { margin-bottom: 0; }
+  .box-tip  { background: var(--tip-bg);  border-left-color: var(--tip-border); }
+  .box-warn { background: var(--warn-bg); border-left-color: var(--warn-border); }
+  .box-ok   { background: var(--ok-bg);   border-left-color: var(--ok-border); }
+  .toc { background: var(--code-bg); border: 1px solid var(--border); border-radius: 8px; padding: 1rem 1.4rem; margin: 2rem 0; }
+  .toc strong { display: block; margin-bottom: .4rem; }
+  .toc ol { margin: 0; } .toc li { margin: .25rem 0; }
+  .lead { font-size: 1.02rem; background: var(--code-bg); border-left: 4px solid var(--accent); padding: 1rem 1.2rem; border-radius: 8px; margin: 1.5rem 0 2rem; }
+  .badge-bad, .badge-good { display: inline-block; font-size: .8rem; font-weight: 700; padding: .1rem .55rem; border-radius: 99px; margin-bottom: .3rem; }
+  .badge-bad  { background: var(--bad-bg); color: var(--bad-border); border: 1px solid var(--bad-border); }
+  .badge-good { background: var(--ok-bg); color: var(--ok-border); border: 1px solid var(--ok-border); }
+  hr { border: none; border-top: 1px solid var(--border); margin: 3rem 0; }
+</style>
+</head>
+<body>
+<main>
+
+<h1>반응 수집 + 시뮬레이터 구현 가이드 (신입용)</h1>
+<p class="subtitle">
+  SceneLog day3 학습 자료 · 2026-07-31 · 실제 코드: <code>src/main/java/com/scenelog/reaction/</code><br>
+  같은 내용의 마크다운: <a href="반응수집-구현-가이드.md">반응수집-구현-가이드.md</a>
+</p>
+
+<div class="lead">
+  <strong>읽는 목표</strong> — "프론트엔드 없이 어떻게 데이터를 만들고,
+  그 데이터를 어떻게 믿을 수 있게 하는가"를 설명할 수 있게 되는 것.
+</div>
+
+<div class="toc">
+  <strong>목차</strong>
+  <ol>
+    <li><a href="#s1">오늘 만든 것 — 한 장 그림</a></li>
+    <li><a href="#s2">왜 시뮬레이터인가</a></li>
+    <li><a href="#s3">각본(Scenario) — 오늘 코드의 심장</a></li>
+    <li><a href="#s4">검증 5종 — 왜 하나하나가 필요한가</a></li>
+    <li><a href="#s5">멱등 — 오늘의 가장 중요한 개념 ★</a></li>
+    <li><a href="#s6">시연 모드 — DB에 직접 넣지 않는 이유</a></li>
+    <li><a href="#s7">인덱스를 코드로 만드는 이유</a></li>
+    <li><a href="#s8">오늘의 500 — LazyInitializationException</a></li>
+    <li><a href="#s9">면접 예상 질문과 답</a></li>
+    <li><a href="#s10">스스로 확인하기</a></li>
+  </ol>
+</div>
+
+<h2 id="s1">1. 오늘 만든 것 — 한 장 그림</h2>
+<pre><code>[시뮬레이터]                         [수집 API]                    [MongoDB]
+Scenario(각본)                POST /api/sessions/{id}/reactions
+ "27% 지점에 TENSION 피크"  →   검증 5종 통과해야만           →   reaction_events
+ ReactionSimulator.generate()   (소유·범위·상한·enum·멱등)         1,883건
+      │
+      └─ 정답지(answerPeaks)를 응답으로 공개
+         → 내일(day4) 검출기가 이걸 찾아내는지 채점</code></pre>
+<div class="table-wrap">
+<table>
+  <thead><tr><th>항목</th><th>실측값</th></tr></thead>
+  <tbody>
+    <tr><td>생성·적재</td><td>오디세이(10380초) × 20명 → <strong>1,883건</strong></td></tr>
+    <tr><td><strong>재실행</strong></td><td><code>inserted=0, skipped=1883</code> — <strong>멱등 증명</strong></td></tr>
+    <tr><td>정답지</td><td>TENSION 2802~2852s / TOUCHED 7058~7118s</td></tr>
+    <tr><td>검증 응답</td><td>남의 세션 <strong>403</strong> · offset 초과 <strong>400</strong> · 501건 배치 <strong>400</strong> · 없는 enum <strong>400</strong> · 없는 세션 <strong>404</strong></td></tr>
+  </tbody>
+</table>
+</div>
+
+<h2 id="s2">2. 왜 시뮬레이터인가 — 다시 한 번</h2>
+<pre><code>[버튼 클릭] ──HTTP──&gt; POST /api/sessions/17/reactions {"offsetSec":2431,"reactionType":"TENSION"}
+[시뮬레이터] ─메서드 호출─&gt; 같은 검증, 같은 저장 경로</code></pre>
+<p><strong>서버는 요청이 어디서 왔는지 구분하지 못하고, 구분할 필요도 없다.</strong>
+게다가 시뮬레이터는 실사용자가 못 주는 것을 준다 — <strong>정답</strong>. 어디에 피크를 심었는지 알기 때문에,
+검출기가 그걸 찾아내는지 <strong>채점</strong>할 수 있다. 실사용자 데이터로는 정답을 모르니 채점이 불가능하다.</p>
+
+<h2 id="s3">3. 각본(Scenario) — 오늘 코드의 심장</h2>
+<pre><code>public record Scenario(
+        long contentId,
+        int durationSec,
+        double baselinePerMinute,   // 배경 노이즈: 사용자당 분당 반응 횟수
+        List&lt;Peak&gt; peaks            // ★ 심어둔 피크 = 정답지
+) {
+    public static Scenario defaultFor(long contentId, int durationSec) {
+        int p1 = (int) (durationSec * 0.27);   // 27% 지점
+        int p2 = (int) (durationSec * 0.68);   // 68% 지점
+        return new Scenario(contentId, durationSec, 0.5, List.of(
+                new Peak(p1, p1 + 50, ReactionType.TENSION, 15.0),
+                new Peak(p2, p2 + 60, ReactionType.TOUCHED, 12.0)
+        ));
+    }
+}</code></pre>
+<p>읽는 법: "이 영화의 27% 지점부터 50초간, 반응 확률이 평소의 <strong>15배</strong>가 된다(주로 TENSION)."</p>
+<p><strong>생성 로직의 핵심 세 줄</strong> (<code>ReactionSimulator.generate</code>):</p>
+<pre><code>double p = scenario.baselinePerMinute() / 60.0;   // ① 기본: 초당 발생 확률 (노이즈)
+if (active != null) p *= active.multiplier();     // ② 피크 안이면 확률을 15배로
+if (rnd.nextDouble() &gt;= p) continue;              // ③ 주사위 — 확률에 못 미치면 반응 없음</code></pre>
+<ul>
+  <li><strong>노이즈가 왜 필요한가</strong>: 피크만 있으면 검출이 시험문제로서 너무 쉽다. 배경 잡음 위에서 솟은 것을 찾아야 z-score가 의미 있는 일을 한다.</li>
+  <li><strong>피크 안에서도 20%는 다른 반응</strong> (<code>OFF_TYPE_RATIO = 0.2</code>): 실제 사람도 긴장 장면에서 웃는다.</li>
+</ul>
+<h3>결정적(deterministic) 생성 — seed의 의미</h3>
+<pre><code>Random rnd = new Random(seed);   // 같은 seed → 같은 난수 순서 → 같은 결과</code></pre>
+<p><code>new Random(42)</code>는 "무작위처럼 보이지만 재현 가능한" 수열을 만든다. 그래서:</p>
+<ul>
+  <li>테스트가 안정적이다 (오늘 통과한 테스트는 내일도 통과)</li>
+  <li>시연이 재현 가능하다 (면접에서 돌려도 같은 그림)</li>
+  <li><strong>멱등의 기반이 된다</strong> (§5)</li>
+</ul>
+
+<h2 id="s4">4. 검증 5종 — 왜 하나하나가 필요한가</h2>
+<div class="table-wrap">
+<table>
+  <thead><tr><th>#</th><th>검증</th><th>없으면 생기는 일</th></tr></thead>
+  <tbody>
+    <tr><td>1</td><td>세션 존재 (404)</td><td>유령 세션에 반응이 쌓여 집계가 오염</td></tr>
+    <tr><td>2</td><td><strong>요청자 소유</strong> (403)</td><td>남의 시청 기록에 반응 조작 가능 — 데이터 신뢰성 붕괴</td></tr>
+    <tr><td>3</td><td>offset ≤ 상영시간 (400)</td><td>2시간 영화의 "9만 초 지점 반응" 같은 쓰레기 유입</td></tr>
+    <tr><td>4</td><td>배치 ≤ 500 (400)</td><td>한 요청으로 수백만 건 밀어넣는 메모리 폭탄</td></tr>
+    <tr><td>5</td><td>clientEventId 멱등</td><td>네트워크 재전송마다 반응이 2배씩 불어남</td></tr>
+  </tbody>
+</table>
+</div>
+<h3>검증 2가 특별한 이유 — "애플리케이션이 FK를 대신한다"</h3>
+<pre><code>WatchSession session = sessionRepository.findById(sessionId)
+        .orElseThrow(() -&gt; new ApiException(HttpStatus.NOT_FOUND, "세션을 찾을 수 없습니다..."));
+
+if (!session.isOwnedBy(user.getUserId())) {
+    throw new ApiException(HttpStatus.FORBIDDEN, "본인의 세션이 아닙니다");
+}</code></pre>
+<div class="box box-tip">
+  <p><code>reaction_events</code>(MongoDB)의 <code>sessionId</code>는 PostgreSQL의 <code>watch_sessions</code>를
+  가리키지만, <strong>서로 다른 DB라 외래키(FK)로 보장할 방법이 없다.</strong> PostgreSQL 안이라면 DB가
+  거절해 줄 일을 여기서는 애플리케이션이 직접 한다. <strong>폴리글랏(DB 2개)의 대가를 갚는 지점</strong>이며,
+  면접에서 "DB 두 개면 정합성은 어떻게 하나요?"의 답이 이 코드다.</p>
+</div>
+<h3>검증 4·5는 코드가 아니라 선언으로</h3>
+<pre><code>@NotEmpty @Size(max = 500, message = "배치는 최대 500건입니다")
+List&lt;@Valid Item&gt; events</code></pre>
+<p>컨트롤러에 <code>if (events.size() &gt; 500)</code>를 쓰지 않았다. <code>@Size</code> 선언이 컨트롤러 진입
+<strong>전에</strong> 거른다. enum 검증도 역직렬화 단계에서 실패한다.
+<strong>검증을 앞 계층으로 밀수록 서비스 로직이 단순해진다.</strong></p>
+<p>단, 역직렬화 실패가 500으로 새는 문제가 있어 핸들러를 추가했다:</p>
+<pre><code>@ExceptionHandler(HttpMessageNotReadableException.class)   // 없는 enum 값 → 400
+public ResponseEntity&lt;ErrorResponse&gt; handleUnreadable(...) {
+    return ResponseEntity.badRequest()
+            .body(ErrorResponse.of(400, "요청 본문을 해석할 수 없습니다 (JSON 형식·enum 값 확인)"));
+}</code></pre>
+<blockquote><p><strong>왜 400이어야 하나</strong>: 500은 "서버 잘못", 400은 "요청 잘못"이다.
+상태코드를 정확히 나누는 것이 API 설계의 기본 예의다.</p></blockquote>
+
+<h2 id="s5">5. 멱등 — 오늘의 가장 중요한 개념</h2>
+<p><span class="badge-bad">😰 흔한 코드</span> — id를 서버가 무작위로:</p>
+<pre><code>event.setId(UUID.randomUUID().toString());   // 재전송하면? 새 UUID → 중복 저장됨
+repository.save(event);</code></pre>
+<p>네트워크가 불안해 클라이언트가 같은 배치를 재전송하면 <strong>반응이 2배로 불어난다.</strong>
+모바일 환경에서 재전송은 일상이다.</p>
+<p><span class="badge-good">✅ 우리 코드</span> — 결정적 id + 유니크 인덱스 + 중복은 조용히 스킵:</p>
+<pre><code>// ① ReactionSimulator — id가 내용에서 결정된다 (무작위가 아니다)
+"sim-c%d-u%d-%d".formatted(scenario.contentId(), u, seq++)
+
+// ② MongoIndexConfig — DB에 유니크 인덱스
+indexOps.createIndex(new Index().named("client_event_id_uniq")
+        .on("clientEventId", Sort.Direction.ASC).unique());
+
+// ③ ReactionService — 중복이면 예외가 아니라 카운트
+try {
+    reactionEventRepository.save(new ReactionEvent(item.clientEventId(), ...));
+    inserted++;
+} catch (DuplicateKeyException e) {
+    skipped++;   // 재전송된 이벤트 — 오류가 아니라 정상 (멱등)
+}</code></pre>
+<pre><code>1차 실행: inserted=1883, skipped=0
+2차 실행: inserted=0,    skipped=1883     ← 같은 요청을 다시 보내도 안전하다</code></pre>
+<div class="box box-ok">
+  <p><strong>응답을 보라</strong>: 2차 실행이 에러가 아니다. <code>inserted=0</code>이 <strong>정상 응답</strong>이다.
+  "이미 처리된 요청의 재시도"는 실패가 아니라 성공(아무것도 안 해도 됨)으로 취급한다 —
+  이것이 멱등 API의 핵심 사상이다.</p>
+</div>
+
+<h2 id="s6">6. 시연 모드 설계 — DB에 직접 넣지 않는 이유</h2>
+<p><span class="badge-bad">😰 편한 길</span>:</p>
+<pre><code>mongoTemplate.insertAll(events);   // 시뮬레이터 결과를 Mongo에 바로 벌크 삽입 — 빠르다</code></pre>
+<p><span class="badge-good">✅ 우리 코드</span> (<code>SimulateService</code>) — 실제 수집 경로를 통과시킨다:</p>
+<pre><code>ReactionBatchResponse r = reactionService.registerBatch(     // 실제 API와 같은 서비스 호출
+        caller, realSessionId, new ReactionBatchRequest(new ArrayList&lt;&gt;(chunk)));</code></pre>
+<p>느린데 왜? <strong>1,883건이 들어갔다는 사실 자체가 검증 5종이 실전에서 돌았다는 증거</strong>가 되기 때문이다.</p>
+<ul>
+  <li>소유 검증을 통과하려면 → 진짜 세션을 만들어야 했고 (20개 생성)</li>
+  <li>offset 검증을 통과하려면 → 각본이 상영시간 안에서만 생성해야 했고</li>
+  <li>멱등을 통과하려면 → id가 결정적이어야 했다</li>
+</ul>
+<div class="box box-tip">
+  <p><strong>시연이 곧 통합 테스트다.</strong> (단, day5의 100만 건 시드는 속도 때문에 의도적으로 벌크
+  경로를 쓴다 — 그때는 "검증을 우회했다"고 README에 명시한다. 같은 선택도 목적에 따라 답이 다르다.)</p>
+</div>
+
+<h2 id="s7">7. 인덱스를 코드로 만드는 이유 — 3호 사건의 교훈</h2>
+<p><span class="badge-bad">😰 편한 길</span> — 어노테이션 + 자동 생성 프로퍼티:</p>
+<pre><code>spring:
+  mongodb:
+    auto-index-creation: true   # 이 프로퍼티 이름이 맞는지 어떻게 확신하나?</code></pre>
+<p>우리는 바로 어제 <strong>프로퍼티 이름이 조용히 무시되는 사고</strong>(Boot 4 프리픽스 이동, 트러블슈팅 3호)를 겪었다.
+인덱스는 day5 성능 실측의 대상이라 "있겠지"가 아니라 <strong>있음이 보장</strong>되어야 한다.</p>
+<p><span class="badge-good">✅ 우리 코드</span> (<code>MongoIndexConfig</code>) — 기동 시 코드로 생성:</p>
+<pre><code>@Bean
+public ApplicationRunner mongoIndexInitializer(MongoTemplate mongoTemplate) {
+    return args -&gt; {
+        var indexOps = mongoTemplate.indexOps(ReactionEvent.class);
+        indexOps.createIndex(new Index().named("content_offset_idx")
+                .on("contentId", Sort.Direction.ASC).on("offsetSec", Sort.Direction.ASC));
+        indexOps.createIndex(new Index().named("client_event_id_uniq")
+                .on("clientEventId", Sort.Direction.ASC).unique());
+    };
+}</code></pre>
+<p>코드는 무시되면 컴파일 에러거나 기동 실패다 — <strong>조용히 사라지지 않는다.</strong>
+덤: day5에서 인덱스를 drop하고 측정한 뒤 앱을 재기동하면 자동 복구된다.</p>
+
+<h2 id="s8">8. 오늘의 500 에러 — LazyInitializationException</h2>
+<pre><code>org.hibernate.LazyInitializationException: Could not initialize proxy [Content#1] - no session
+	at com.scenelog.reaction.ReactionService.registerBatch(ReactionService.java:41)</code></pre>
+<h3>원인 — 세 가지의 조합</h3>
+<pre><code>① WatchSession.content = @ManyToOne(fetch = LAZY)   ← 콘텐츠는 "대역(프록시)"으로 온다
+② open-in-view: false                                ← 요청 내내 DB 세션을 열어두지 않는다 (올바른 설정)
+③ registerBatch에 @Transactional 없음                ← findById 후 트랜잭션이 바로 닫힘
+
+[Tx 없음]  findById(sessionId)                        ← DB 세션 열렸다 즉시 닫힘
+           session.getContent().getDurationSec()      ← 프록시: "이제 진짜 읽어야지" → 세션 없음 → 💥</code></pre>
+<h3>해결 — OSIV를 켜는 게 아니라 경계를 명시한다</h3>
+<pre><code>@Transactional(readOnly = true)   // 메서드 전체가 하나의 DB 세션 안에서 실행된다
+public ReactionBatchResponse registerBatch(User user, Long sessionId, ReactionBatchRequest request) {</code></pre>
+<p><code>open-in-view: true</code>로 돌려도 예외는 사라진다. 하지만 그건 <strong>신호를 끄는 것</strong>이다:</p>
+<ul>
+  <li>OSIV는 HTTP 응답이 끝날 때까지 DB 커넥션을 점유한다 → 커넥션 풀 고갈 위험</li>
+  <li>"어디서 DB를 읽는지" 보이지 않게 된다 → N+1이 숨는다</li>
+</ul>
+<div class="box box-warn">
+  <p><strong>LazyInitializationException은 버그가 아니라 경계 알림이다</strong> — "트랜잭션 밖에서 DB 접근이
+  일어났다"는 신호. 신호를 끄지 말고 경계를 바로잡는다.
+  상세: <a href="troubleshooting/2026-07-31-lazy-initialization.md">트러블슈팅 4호</a></p>
+</div>
+
+<h2 id="s9">9. 면접 예상 질문과 답</h2>
+<p><strong>Q1. "멱등성을 어떻게 구현하셨나요?"</strong></p>
+<blockquote><p>클라이언트가 이벤트마다 결정적인 id(clientEventId)를 부여하고, DB에 유니크 인덱스를 걸었습니다.
+재전송된 이벤트는 DuplicateKeyException으로 감지해 오류가 아니라 skip으로 처리합니다.
+실제로 같은 1,883건을 두 번 등록해 inserted=0을 확인했습니다.</p></blockquote>
+<p><strong>Q2. "DB가 두 개인데 참조 정합성은 어떻게 지키나요?"</strong></p>
+<blockquote><p>MongoDB의 이벤트가 PostgreSQL의 세션을 가리키는데 FK를 걸 수 없어서, 쓰기 시점에
+애플리케이션이 세션 존재·소유를 검증합니다. 그래도 새는 것에 대비해 주기적 고아 검출을
+계획에 두었고, 실시간 차단이 아닌 사후 검출이라는 한계도 인지하고 있습니다.</p></blockquote>
+<p><strong>Q3. "시뮬레이터 데이터로 뭘 증명할 수 있죠? 가짜 데이터잖아요."</strong></p>
+<blockquote><p>두 가지입니다. 첫째, 수집·집계 파이프라인의 동작은 데이터 출처와 무관하게 증명됩니다.
+둘째, 오히려 정답을 아는 데이터라서 검출 알고리즘을 채점할 수 있습니다 — 어디에 피크를
+심었는지 아니까요. 실사용자 데이터로는 정답을 몰라 정확도를 측정할 수 없습니다.
+README에 시뮬레이터 사용을 명시해 숨기지 않았습니다.</p></blockquote>
+<p><strong>Q4. "OSIV(open-in-view)를 끄셨네요. 왜죠?"</strong></p>
+<blockquote><p>켜두면 HTTP 응답이 끝날 때까지 DB 커넥션을 점유해서, 외부 API 호출이 낀 요청에서
+커넥션 풀 고갈의 원인이 됩니다. 끄면 LazyInitializationException이 나올 수 있지만,
+그건 트랜잭션 경계가 잘못됐다는 신호라서 경계를 명시하는 쪽으로 해결했습니다.</p></blockquote>
+
+<h2 id="s10">10. 스스로 확인하기</h2>
+<ol>
+  <li>시뮬레이터가 만든 요청과 실제 버튼 클릭 요청을 서버가 구분할 수 있나? 그게 왜 중요한가?</li>
+  <li><code>new Random(42)</code>처럼 seed를 고정하면 뭐가 좋아지나? (3가지)</li>
+  <li>재전송된 배치에 <code>inserted=0</code>을 반환하는 게 왜 "에러"가 아니라 "성공"인가?</li>
+  <li>소유 검증(403)이 폴리글랏 설계와 무슨 관련이 있나?</li>
+  <li>배치 상한 검증은 어느 계층에서 일어나나? 서비스 코드에 if문이 없는 이유는?</li>
+  <li>LazyInitializationException을 OSIV로 풀지 않은 이유 2가지는?</li>
+</ol>
+
+<hr>
+<p class="subtitle">
+  관련: <a href="troubleshooting/2026-07-31-lazy-initialization.md">트러블슈팅 4호</a> ·
+  <a href="plans/day3-0802-반응수집.md">day3 계획서</a> ·
+  <a href="ETL-구현-가이드.html">ETL 가이드(HTML)</a> ·
+  <a href="JWT-구현-가이드.html">JWT 가이드(HTML)</a><br>
+  SceneLog · 콘텐츠 반응 타임라인 분석 백엔드 · day3 학습 자료
+</p>
+
+</main>
+</body>
+</html>
