@@ -23,9 +23,13 @@ spring:
       ddl-auto: update
     open-in-view: false
 
+  # ⚠️ Spring Boot 4에서 MongoDB 설정이 spring.data.mongodb.* → spring.mongodb.* 로 이동했다.
+  # 옛 프리픽스로 쓰면 조용히 무시되어 기본값(localhost/test DB)으로 붙는다 —
+  # 로컬에서는 티가 안 나고 EC2에서 MONGO_HOST가 무시되며 터진다. (트러블슈팅 로그 3호)
+  mongodb:
+    uri: mongodb://${MONGO_HOST:localhost}:27017/${MONGO_DB:scenelog}
+
   data:
-    mongodb:
-      uri: mongodb://${MONGO_HOST:localhost}:27017/${MONGO_DB:scenelog}
     redis:
       host: ${REDIS_HOST:localhost}
       port: 6379
