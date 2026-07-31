@@ -39,3 +39,13 @@
 - **실측**: 오디세이(10380초)×20명 → **1883건 적재**, 정답지 TENSION 2802~2852s / TOUCHED 7058~7118s. **재실행 inserted=0, skipped=1883 — 멱등 실증.** 검증 응답: 남의 세션 403 · offset 초과 400 · 배치 501건 400 · 없는 enum 400 · 없는 세션 404.
 - **트러블슈팅 4호**: LazyInitializationException — LAZY 연관 + open-in-view=false + @Transactional 부재 조합. readOnly Tx로 해결. **OSIV를 다시 켜지 않은 이유**(커넥션 점유·N+1 은폐)를 기록 — 면접 단골 주제. 상세: `troubleshooting/2026-07-31-lazy-initialization.md`
 - **다음(8/1)**: day4(집계 + 하이라이트 검출 + Redis 캐시) — 검출이 answerPeaks를 찾아내면 §11 성과 3번 확보. Redis 프리픽스 검증 잊지 말 것.
+
+## 2026-08-01 (3일차) — day4: 집계 + 검출 + 캐시
+
+- **TDD**: Aggregator·HighlightDetector 8개 green. 발견 1건 — 짧은 시계열(12버킷)은 피크가 σ를 부풀려 자기 z-score를 깎는다(z=1.96<2.0 실측). 테스트 데이터를 현실적 길이(20버킷)로 수정하고 주석에 근거 기록.
+- **★ 정답지 채점**: 검출 2800~2860s(정답 2802~2852) · 7050~7120s(정답 7058~7118) — **2/2, 정확도 100%, 버킷 해상도(10s) 내 일치. §11 성과 3번 확보.**
+- **멱등**: 집계 2회 실행 → 버킷 820개·하이라이트 2개 동일 (전량 재계산: delete+insert 한 Tx).
+- **캐시 실측**: 미스 516ms → 히트 p50 **22.4ms** / p95 39.5ms (~23배). 미스→히트→evict→재생성 사이클 정상.
+- **트러블슈팅 5호**: 캐시 저장은 되는데 히트만 500 — record는 final이라 GenericJackson2JsonRedisSerializer(NON_FINAL 정책)가 타입 메타데이터를 안 심는다. 타입 명시 Jackson2JsonRedisSerializer로 교체. **교훈: 캐시는 미스·히트·무효화 세 경로를 다 검증해야 한다.**
+- **Redis 프리픽스 숙제 해결**: REDIS_HOST=bogus 부정 테스트 → health 503 DOWN = `spring.data.redis.*` Boot 4 정상 바인딩 (Mongo와 달리 이동 안 함).
+- **다음**: day5(대량 시드 + 인덱스 실측 — §11 성과 1번) 또는 EDA 그래프. 여전히 이틀 선행.
