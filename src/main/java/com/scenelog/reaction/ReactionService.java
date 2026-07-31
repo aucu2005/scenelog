@@ -10,6 +10,7 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.dao.DuplicateKeyException;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 import java.time.Instant;
 
@@ -27,6 +28,14 @@ public class ReactionService {
     private final WatchSessionRepository sessionRepository;
     private final ReactionEventRepository reactionEventRepository;
 
+    /**
+     * {@code @Transactional(readOnly = true)}가 필요한 이유:
+     * WatchSession.content는 LAZY 프록시이고 open-in-view=false 이므로,
+     * 트랜잭션 없이 {@code getContent().getDurationSec()}를 건드리면
+     * LazyInitializationException이 난다 (트러블슈팅 4호).
+     * Mongo 쓰기는 JPA 트랜잭션과 무관하므로 readOnly여도 정상 동작한다.
+     */
+    @Transactional(readOnly = true)
     public ReactionBatchResponse registerBatch(User user, Long sessionId, ReactionBatchRequest request) {
         // 검증 1: 세션 존재
         WatchSession session = sessionRepository.findById(sessionId)

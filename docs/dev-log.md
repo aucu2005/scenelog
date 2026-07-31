@@ -32,3 +32,10 @@
 - **설계 판단 1건**: 미개봉작(미래 개봉일)을 격리하는 게 맞는가? 일반 영화 DB라면 정상 데이터지만, SceneLog는 **시청 반응 분석 서비스라 시청 불가능한 콘텐츠는 세션이 존재할 수 없다** → 격리가 방어 가능한 판단. 면접 소재.
 - **트러블슈팅 3호**: 품질 리포트는 격리 4건인데 컬렉션이 비어 있음 → listDatabases로 추적 → **Boot 4에서 `spring.data.mongodb.*` → `spring.mongodb.*` 이동**, 옛 키는 조용히 무시되어 기본 DB(test)로 적재됨. 로컬에선 티가 안 나고 **EC2 배포일에 터질 버그**를 미리 잡음. 상세: `troubleshooting/2026-07-31-mongo-wrong-database.md`
 - **다음(8/1)**: day3(반응 수집 + 시뮬레이터)로 — 일정 하루 여유 확보. Redis 프리픽스도 day4에 같은 방식으로 검증할 것.
+
+### day3(반응 수집 + 시뮬레이터)도 당일 진행 (7/31 밤)
+
+- **구현**: ReactionSimulator TDD(4개 green, 계획의 record → Mongo @Id 필요로 클래스화·record식 접근자 유지) → 인덱스 2종을 MongoIndexConfig로 **코드 생성**(자동생성 프로퍼티 불신 — 3호 교훈) → ReactionService 검증 5종 → SimulateService(실제 수집 경로 통과 = 시연이 곧 통합 테스트).
+- **실측**: 오디세이(10380초)×20명 → **1883건 적재**, 정답지 TENSION 2802~2852s / TOUCHED 7058~7118s. **재실행 inserted=0, skipped=1883 — 멱등 실증.** 검증 응답: 남의 세션 403 · offset 초과 400 · 배치 501건 400 · 없는 enum 400 · 없는 세션 404.
+- **트러블슈팅 4호**: LazyInitializationException — LAZY 연관 + open-in-view=false + @Transactional 부재 조합. readOnly Tx로 해결. **OSIV를 다시 켜지 않은 이유**(커넥션 점유·N+1 은폐)를 기록 — 면접 단골 주제. 상세: `troubleshooting/2026-07-31-lazy-initialization.md`
+- **다음(8/1)**: day4(집계 + 하이라이트 검출 + Redis 캐시) — 검출이 answerPeaks를 찾아내면 §11 성과 3번 확보. Redis 프리픽스 검증 잊지 말 것.
