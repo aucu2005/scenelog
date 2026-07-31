@@ -1,0 +1,276 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>집계 + 하이라이트 검출 + 캐시 구현 가이드 (신입용) — SceneLog</title>
+<style>
+  :root {
+    --bg: #ffffff; --fg: #1f2328; --muted: #656d76; --border: #d8dee4;
+    --code-bg: #f6f8fa; --accent: #0969da;
+    --warn-bg: #fff8c5; --warn-border: #d4a72c;
+    --ok-bg: #dafbe1; --ok-border: #2da44e;
+    --bad-bg: #ffebe9; --bad-border: #cf222e;
+    --tip-bg: #ddf4ff; --tip-border: #54aeff;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #0d1117; --fg: #e6edf3; --muted: #9198a1; --border: #30363d;
+      --code-bg: #161b22; --accent: #4493f8;
+      --warn-bg: #2d2412; --warn-border: #9e6a03;
+      --ok-bg: #0f2d18; --ok-border: #238636;
+      --bad-bg: #2d1315; --bad-border: #da3633;
+      --tip-bg: #0d2538; --tip-border: #316dca;
+    }
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; padding: 2.5rem 1.25rem 6rem; background: var(--bg); color: var(--fg);
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "Malgun Gothic",
+                 "Apple SD Gothic Neo", "Noto Sans KR", Roboto, sans-serif;
+    line-height: 1.75; font-size: 16px; word-break: keep-all; overflow-wrap: break-word;
+  }
+  main { max-width: 860px; margin: 0 auto; }
+  h1 { font-size: 1.85rem; line-height: 1.35; margin: 0 0 .5rem; padding-bottom: .6rem; border-bottom: 2px solid var(--border); }
+  h2 { font-size: 1.35rem; margin: 3rem 0 1rem; padding-bottom: .4rem; border-bottom: 1px solid var(--border); }
+  h3 { font-size: 1.08rem; margin: 2rem 0 .6rem; }
+  .subtitle { color: var(--muted); font-size: .9rem; margin: 0 0 2rem; }
+  .subtitle a { color: var(--accent); }
+  p, li { margin: .6rem 0; }
+  ul, ol { padding-left: 1.4rem; }
+  a { color: var(--accent); }
+  code {
+    background: var(--code-bg); padding: .15em .4em; border-radius: 5px;
+    font-family: "Cascadia Code", Consolas, "D2Coding", "SF Mono", Menlo, monospace; font-size: .875em;
+  }
+  pre { background: var(--code-bg); border: 1px solid var(--border); border-radius: 8px; padding: 1rem; overflow-x: auto; line-height: 1.55; }
+  pre code { background: none; padding: 0; font-size: .845rem; }
+  .table-wrap { overflow-x: auto; margin: 1rem 0; }
+  table { border-collapse: collapse; width: 100%; font-size: .93rem; }
+  th, td { border: 1px solid var(--border); padding: .55rem .75rem; text-align: left; vertical-align: top; }
+  th { background: var(--code-bg); font-weight: 600; }
+  blockquote { margin: 1.2rem 0; padding: .1rem 1rem; border-left: 4px solid var(--border); color: var(--muted); }
+  .box { border-radius: 8px; padding: .9rem 1.1rem; margin: 1.2rem 0; border-left: 4px solid; }
+  .box p:first-child { margin-top: 0; } .box p:last-child { margin-bottom: 0; }
+  .box-tip  { background: var(--tip-bg);  border-left-color: var(--tip-border); }
+  .box-warn { background: var(--warn-bg); border-left-color: var(--warn-border); }
+  .box-ok   { background: var(--ok-bg);   border-left-color: var(--ok-border); }
+  .box-bad  { background: var(--bad-bg);  border-left-color: var(--bad-border); }
+  .toc { background: var(--code-bg); border: 1px solid var(--border); border-radius: 8px; padding: 1rem 1.4rem; margin: 2rem 0; }
+  .toc strong { display: block; margin-bottom: .4rem; }
+  .toc ol { margin: 0; } .toc li { margin: .25rem 0; }
+  .lead { font-size: 1.02rem; background: var(--code-bg); border-left: 4px solid var(--accent); padding: 1rem 1.2rem; border-radius: 8px; margin: 1.5rem 0 2rem; }
+  .badge-bad, .badge-good { display: inline-block; font-size: .8rem; font-weight: 700; padding: .1rem .55rem; border-radius: 99px; margin-bottom: .3rem; }
+  .badge-bad  { background: var(--bad-bg); color: var(--bad-border); border: 1px solid var(--bad-border); }
+  .badge-good { background: var(--ok-bg); color: var(--ok-border); border: 1px solid var(--ok-border); }
+  hr { border: none; border-top: 1px solid var(--border); margin: 3rem 0; }
+</style>
+</head>
+<body>
+<main>
+
+<h1>집계 + 하이라이트 검출 + 캐시 구현 가이드 (신입용)</h1>
+<p class="subtitle">
+  SceneLog day4 학습 자료 · 2026-08-01 · 실제 코드: <code>src/main/java/com/scenelog/analytics/</code><br>
+  같은 내용의 마크다운: <a href="집계검출캐시-구현-가이드.md">집계검출캐시-구현-가이드.md</a>
+</p>
+
+<div class="lead">
+  <strong>읽는 목표</strong> — "수만 건의 점을 어떻게 의미 있는 구간으로 바꾸고,
+  그 결과를 어떻게 빠르게 서빙하는가"를 설명할 수 있게 되는 것.
+</div>
+
+<div class="toc">
+  <strong>목차</strong>
+  <ol>
+    <li><a href="#s1">오늘 만든 것 — 한 장 그림</a></li>
+    <li><a href="#s2">집계 — fact와 mart</a></li>
+    <li><a href="#s3">검출 — z-score는 "얼마나 유별난가"의 숫자</a></li>
+    <li><a href="#s4">멱등 — 전량 재계산, delete를 먼저 하는 이유</a></li>
+    <li><a href="#s5">캐시 — 도입보다 무효화가 핵심 ★</a></li>
+    <li><a href="#s6">트러블슈팅 5호 — "저장은 되는데 읽기만 500"</a></li>
+    <li><a href="#s7">부정 테스트</a></li>
+    <li><a href="#s8">면접 예상 질문과 답</a></li>
+    <li><a href="#s9">스스로 확인하기</a></li>
+  </ol>
+</div>
+
+<h2 id="s1">1. 오늘 만든 것 — 한 장 그림</h2>
+<pre><code>reaction_events (MongoDB, 1,883건)          ← 원본: "누가 몇 초에 뭘 눌렀나" 점 1,883개
+        │
+        │  Aggregator.aggregate(events, 10)
+        ▼
+segment_stats (PostgreSQL, 820행)           ← 집계: 10초 버킷별 반응 수
+        │
+        │  HighlightDetector.detect(totals, 10)
+        ▼
+highlights (PostgreSQL, 2행)                ← 검출: "유별나게 높은 구간" 2개
+        │
+        │  GET /api/contents/1/timeline
+        ▼
+Redis 캐시 (scenelog:timeline::1)           ← 조회: 두 번째부터는 DB 안 감</code></pre>
+<div class="table-wrap">
+<table>
+  <thead><tr><th>항목</th><th>실측값</th></tr></thead>
+  <tbody>
+    <tr><td><strong>정답지 채점</strong></td><td>심은 피크 2개 중 <strong>2개 검출 (100%)</strong> — 2800~2860s(정답 2802~2852) · 7050~7120s(정답 7058~7118)</td></tr>
+    <tr><td>멱등</td><td>집계 2회 실행 → 버킷 820·하이라이트 2 동일</td></tr>
+    <tr><td>캐시</td><td>미스 516ms → 히트 <strong>p50 22.4ms</strong> (~23배)</td></tr>
+  </tbody>
+</table>
+</div>
+
+<h2 id="s2">2. 집계 — 왜 미리 뭉쳐 두는가 (fact와 mart)</h2>
+<p><span class="badge-bad">😰 조회할 때마다 계산</span>:</p>
+<pre><code>GET /timeline → find 1,883 events → group by bucket → 응답
+// 사용자가 늘수록, 데이터가 쌓일수록 느려진다. 같은 계산을 요청마다 반복.</code></pre>
+<p><span class="badge-good">✅ 우리 구조</span> — 계산은 배치가, 조회는 읽기만:</p>
+<pre><code>쓰기 시점(가끔):  aggregate 실행 → 820행으로 미리 요약해 저장
+읽기 시점(자주):  segment_stats 820행을 그냥 읽는다 (계산 0)</code></pre>
+<div class="box box-tip">
+  <p>이것이 데이터 웨어하우스 용어로 <strong>fact(원본) / mart(요약)</strong> 분리다.
+  <code>reaction_events</code>가 fact, <code>segment_stats</code>가 mart —
+  공고 담당업무 6("데이터 웨어하우스/마트 설계")의 축소판.</p>
+</div>
+<h3>버킷 계산 한 줄</h3>
+<pre><code>int bucketStart = (e.offsetSec() / bucketSizeSec) * bucketSizeSec;
+// 2431 / 10 * 10 = 2430   (정수 나눗셈이 나머지를 버린다)
+// 2440 / 10 * 10 = 2440   (경계값은 자기 버킷 — 테스트로 못박음)</code></pre>
+<p><code>Aggregator</code>는 <strong>순수 함수</strong>다 — 같은 입력이면 항상 같은 출력. 이 성질이 뒤의 멱등을 만든다.</p>
+
+<h2 id="s3">3. 검출 — z-score는 "얼마나 유별난가"의 숫자</h2>
+<p>"AI"가 아니다. 고등학교 통계다. 정직하게 표현하는 것이 오히려 강하다.</p>
+<h3>3단계 알고리즘 (<code>HighlightDetector</code>)</h3>
+<p><strong>① 이동평균 — 한 버킷짜리 우연한 튐을 완만하게</strong></p>
+<pre><code>[4, 5, 60, 5, 4]  →  [4.5, 23, 23.3, 23, 4.5]
+// 진짜 피크는 이웃도 높아서 살아남고, 외톨이 튐은 희석된다</code></pre>
+<p><strong>② z-score — 평균에서 몇 표준편차 떨어졌나</strong></p>
+<pre><code>double z = (smoothed[k] - mean) / std;
+// z = 0  → 평범           z = 2  → 상위 약 2% 수준으로 유별남 (우리 임계값)
+// z = 11.76 → 오늘 검출된 TENSION 피크. 압도적으로 유별남</code></pre>
+<p><strong>③ 연속 병합 — z ≥ 2.0인 버킷이 이어지면 하나의 "구간"으로</strong></p>
+<pre><code>버킷:  2800  2810  2820  2830  2840  2850
+z:      2.3   5.1  11.7   9.2   4.4   2.1   → 하나의 구간 2800~2860 (score = 최대 z)</code></pre>
+<h3>오늘의 발견 — 테스트가 가르쳐준 통계</h3>
+<p>12버킷짜리 인공 데이터로 만든 테스트가 <strong>실패</strong>했다. 계산해 보니:</p>
+<pre><code>짧은 시계열에서는 피크 자신이 평균과 표준편차를 크게 부풀린다
+→ (피크값 - 커진 평균) / 커진 σ = z가 오히려 작아짐 (실측 z=1.96 &lt; 임계 2.0)
+
+기준선을 20버킷으로 늘리면 → σ가 안정 → 같은 피크의 z=2.67 → 검출됨</code></pre>
+<div class="box box-warn">
+  <p><strong>z-score는 기준선이 충분히 길어야 일한다.</strong> 실데이터(820버킷)가 잘 되는 이유다.
+  알고리즘 버그가 아니라 통계의 성질 — 이걸 구분하는 것이 디버깅과 데이터 감각의 차이다.</p>
+</div>
+<h3>method 컬럼 — 알고리즘 버저닝</h3>
+<pre><code>public static final String METHOD_ZSCORE_V1 = "ZSCORE_V1";
+// 삭제도 method 단위로만:
+highlightRepository.deleteAllByContentIdAndMethod(contentId, METHOD_ZSCORE_V1);</code></pre>
+<p>나중에 더 좋은 검출법(V2)을 만들면 <strong>V1 결과를 지우지 않고 나란히 저장해 비교</strong>할 수 있다.</p>
+
+<h2 id="s4">4. 멱등 — 전량 재계산, 그리고 delete를 먼저 하는 이유</h2>
+<p><span class="badge-bad">😰 증분</span> (마지막 처리 지점을 기억):</p>
+<pre><code>"지난번에 1500번 이벤트까지 처리했으니 이번엔 1501번부터"
+→ 워터마크 저장 필요, 재실행하면 이중 계산 위험, 멱등 증명 어려움</code></pre>
+<p><span class="badge-good">✅ 전량 재계산</span> (우리 선택):</p>
+<pre><code>segmentStatRepository.deleteAllByContentId(contentId);   // 다 지우고
+segmentStatRepository.saveAll(...);                      // 처음부터 다시 넣는다 (한 트랜잭션)</code></pre>
+<p>느리지만 단순하고, <strong>몇 번을 실행해도 결과가 같음이 자명</strong>하다.
+한계도 안다: 콘텐츠당 이벤트가 수백만 건이 되면 증분으로 전환 — README 한계 절에 기록.</p>
+<h3>왜 UPSERT가 아니라 delete + insert인가</h3>
+<pre><code>UPSERT만 쓰면: 지난 집계에 있던 버킷 2430이 이번 계산에 없으면? (이벤트가 지워진 경우)
+              → 옛 행이 그대로 남는다. 결과가 원본과 어긋남.
+delete+insert: 결과가 항상 "현재 원본의 정확한 요약"이다.</code></pre>
+
+<h2 id="s5">5. 캐시 — 도입보다 무효화가 핵심</h2>
+<pre><code>// TimelineService — 조회: 있으면 Redis에서, 없으면 DB에서 읽고 Redis에 저장
+@Cacheable(value = "timeline", key = "#contentId")
+public List&lt;TimelineBucketResponse&gt; timeline(Long contentId) { ... }
+
+// AggregationService — 집계 완료: 해당 콘텐츠의 캐시를 지운다
+@CacheEvict(value = "timeline", key = "#contentId")
+public Map&lt;String, Object&gt; aggregate(Long contentId) { ... }</code></pre>
+<div class="box box-bad">
+  <p><span class="badge-bad">😰 무효화 없는 캐시</span>는 "빠르게 옛날 데이터를 보여주는 장치"다.
+  집계가 갱신돼도 사용자는 TTL 동안 낡은 타임라인을 본다.
+  TTL 10분은 evict가 누락됐을 때의 <strong>안전망</strong>이지 주 무효화 수단이 아니다.</p>
+</div>
+<p>실측한 전체 사이클:</p>
+<pre><code>① 첫 조회(미스) 516ms → Redis에 scenelog:timeline::1 생성
+② 20회 반복 조회(히트) p50 22.4ms / p95 39.5ms        ← ~23배
+③ 집계 실행 → 키 삭제됨 (evict)
+④ 재조회 → 키 재생성</code></pre>
+<h3>왜 Caffeine(로컬)이 아니라 Redis인가</h3>
+<p>로컬 캐시는 그 프로세스 안에만 있다. 인스턴스가 2대가 되는 순간
+"1번 서버는 새 데이터, 2번 서버는 옛 데이터"가 된다. 캐시를 프로세스 밖(Redis)에 두면
+인스턴스가 늘어도 캐시는 하나다 — 지금은 1대지만, 확장 시 코드 변경이 없는 구조를 선택.</p>
+
+<h2 id="s6">6. 트러블슈팅 5호 — "저장은 되는데 읽기만 500"</h2>
+<div class="table-wrap">
+<table>
+  <thead><tr><th>동작</th><th>결과</th></tr></thead>
+  <tbody>
+    <tr><td>첫 조회 (저장)</td><td>✅ 200, 키 생성</td></tr>
+    <tr><td><strong>두 번째 조회 (히트=읽기)</strong></td><td>❌ <strong>500</strong></td></tr>
+    <tr><td>evict</td><td>✅ 정상</td></tr>
+  </tbody>
+</table>
+</div>
+<h3>원인 — record와 직렬화기의 궁합</h3>
+<pre><code>GenericJackson2JsonRedisSerializer는 복원을 위해 JSON에 @class 타입 정보를 심는다
+그런데 심는 정책이 NON_FINAL — final이 아닌 클래스에만 심는다
+record는 항상 final이다 → 타입 정보 없이 저장됨
+읽을 때: "타입 id가 있어야 하는데?" → SerializationException → 500</code></pre>
+<p><strong>저장은 아무 검증 없이 성공하고 읽기에서만 터진다</strong> — 캐시 미스 경로만 테스트하면 절대 못 잡는다.</p>
+<h3>해결 — 타입을 아는 캐시엔 타입 명시 직렬화기</h3>
+<pre><code>var timelineType = mapper.getTypeFactory()
+        .constructCollectionType(List.class, TimelineBucketResponse.class);
+new Jackson2JsonRedisSerializer&lt;&gt;(mapper, timelineType)
+// 타입 메타데이터가 아예 불필요 → JSON도 작고 깨끗해진다</code></pre>
+<div class="box box-ok"><p><strong>교훈: 캐시는 미스·히트·무효화 세 경로를 전부 검증한다.</strong></p></div>
+
+<h2 id="s7">7. 부정 테스트 — "설정이 읽히는지 의심되면 틀린 값을 넣어보라"</h2>
+<pre><code>REDIS_HOST=bogus-redis-host 로 기동 → /actuator/health → 503 DOWN</code></pre>
+<p>값이 무시됐다면 기본값(localhost)으로 붙어 UP이 나왔을 것이다. <strong>DOWN이 나온 것이 정상 바인딩의 증거.</strong>
+"성공해서 확인"은 기본값 덕분일 수 있지만, "틀린 값으로 실패"는 확실하다 — 부정 테스트의 힘.</p>
+
+<h2 id="s8">8. 면접 예상 질문과 답</h2>
+<p><strong>Q1. "집계를 왜 미리 해두나요? 조회할 때 계산하면 안 되나요?"</strong></p>
+<blockquote><p>조회는 자주 일어나고 집계는 가끔 갱신됩니다. 요청마다 원본 수만~수백만 건을 훑는 대신,
+배치가 한 번 계산해 요약 테이블에 저장하고 조회는 읽기만 하게 분리했습니다.
+원본(fact)과 요약(mart)을 나누는 데이터 마트 설계의 축소판입니다.</p></blockquote>
+<p><strong>Q2. "하이라이트 검출에 AI를 쓰셨나요?"</strong></p>
+<blockquote><p>아니요, 통계입니다. 10초 버킷 반응 밀도에 이동평균을 적용하고 z-score 2.0 이상인 연속
+구간을 검출합니다. 시뮬레이터에 정답 피크를 심어 채점했고 2개 중 2개를 찾았습니다.
+통계 기반이라고 정직하게 표현하는 것이 맞다고 판단했습니다.</p></blockquote>
+<p><strong>Q3. "캐시 무효화는 어떻게 하나요?"</strong></p>
+<blockquote><p>집계가 완료되는 시점에 해당 콘텐츠의 캐시 키를 명시적으로 지웁니다(@CacheEvict).
+TTL 10분도 있지만 그건 evict가 누락됐을 때의 안전망입니다.
+미스·히트·무효화 세 경로를 각각 검증했고, 히트에서만 터지는 직렬화 문제를 그 과정에서 잡았습니다.</p></blockquote>
+<p><strong>Q4. "전량 재계산이면 느리지 않나요?"</strong></p>
+<blockquote><p>지금 규모(콘텐츠당 수천~수만 건)에서는 문제없고, 멱등성 증명이 쉬운 쪽을 택했습니다.
+콘텐츠당 이벤트가 수백만 건이 되면 워터마크 기반 증분으로 전환해야 한다는 한계를 문서에 남겼습니다.</p></blockquote>
+
+<h2 id="s9">9. 스스로 확인하기</h2>
+<ol>
+  <li>fact와 mart의 구분이 뭔가? 우리 프로젝트에서 각각 어느 테이블인가?</li>
+  <li>이동평균을 z-score <strong>전에</strong> 적용하는 이유는?</li>
+  <li>짧은 시계열에서 피크의 z-score가 오히려 작아지는 이유는?</li>
+  <li>delete+insert가 UPSERT보다 나은 경우는 구체적으로 언제인가?</li>
+  <li>@Cacheable과 @CacheEvict가 <strong>다른 클래스</strong>에 붙어 있는데 어떻게 짝이 맞나? (힌트: value와 key)</li>
+  <li>"캐시 저장 성공"이 "캐시 읽기 성공"을 보장하지 않는 이유는? (5호)</li>
+  <li>부정 테스트가 "성공 확인"보다 확실한 이유는?</li>
+</ol>
+
+<hr>
+<p class="subtitle">
+  관련: <a href="troubleshooting/2026-08-01-redis-cache-record-serialization.md">트러블슈팅 5호</a> ·
+  <a href="plans/day4-0803-집계검출.md">day4 계획서</a> ·
+  <a href="반응수집-구현-가이드.html">반응수집 가이드(HTML)</a> ·
+  <a href="ETL-구현-가이드.html">ETL 가이드(HTML)</a> ·
+  <a href="JWT-구현-가이드.html">JWT 가이드(HTML)</a><br>
+  SceneLog · 콘텐츠 반응 타임라인 분석 백엔드 · day4 학습 자료
+</p>
+
+</main>
+</body>
+</html>
