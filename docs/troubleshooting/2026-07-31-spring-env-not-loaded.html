@@ -1,0 +1,461 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Spring이 .env를 읽지 않아 앱이 기동하지 못한 문제 — SceneLog 트러블슈팅 로그 2호</title>
+<style>
+  :root {
+    --bg: #ffffff;
+    --fg: #1f2328;
+    --muted: #656d76;
+    --border: #d8dee4;
+    --code-bg: #f6f8fa;
+    --accent: #0969da;
+    --warn-bg: #fff8c5;
+    --warn-border: #d4a72c;
+    --ok-bg: #dafbe1;
+    --ok-border: #2da44e;
+    --bad-bg: #ffebe9;
+    --bad-border: #cf222e;
+    --tip-bg: #ddf4ff;
+    --tip-border: #54aeff;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #0d1117;
+      --fg: #e6edf3;
+      --muted: #9198a1;
+      --border: #30363d;
+      --code-bg: #161b22;
+      --accent: #4493f8;
+      --warn-bg: #2d2412;
+      --warn-border: #9e6a03;
+      --ok-bg: #0f2d18;
+      --ok-border: #238636;
+      --bad-bg: #2d1315;
+      --bad-border: #da3633;
+      --tip-bg: #0d2538;
+      --tip-border: #316dca;
+    }
+  }
+
+  * { box-sizing: border-box; }
+
+  body {
+    margin: 0;
+    padding: 2.5rem 1.25rem 6rem;
+    background: var(--bg);
+    color: var(--fg);
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "Malgun Gothic",
+                 "Apple SD Gothic Neo", "Noto Sans KR", Roboto, sans-serif;
+    line-height: 1.75;
+    font-size: 16px;
+    word-break: keep-all;
+    overflow-wrap: break-word;
+  }
+  main { max-width: 820px; margin: 0 auto; }
+
+  h1 {
+    font-size: 1.85rem; line-height: 1.35; margin: 0 0 .5rem;
+    padding-bottom: .6rem; border-bottom: 2px solid var(--border);
+  }
+  h2 {
+    font-size: 1.35rem; margin: 3rem 0 1rem;
+    padding-bottom: .4rem; border-bottom: 1px solid var(--border);
+  }
+  h3 { font-size: 1.08rem; margin: 2rem 0 .6rem; }
+
+  .subtitle { color: var(--muted); font-size: .9rem; margin: 0 0 2rem; }
+  .subtitle a { color: var(--accent); }
+
+  p, li { margin: .6rem 0; }
+  ul, ol { padding-left: 1.4rem; }
+  a { color: var(--accent); }
+
+  code {
+    background: var(--code-bg);
+    padding: .15em .4em;
+    border-radius: 5px;
+    font-family: "Cascadia Code", Consolas, "D2Coding", "SF Mono", Menlo, monospace;
+    font-size: .875em;
+  }
+  pre {
+    background: var(--code-bg);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 1rem;
+    overflow-x: auto;
+    line-height: 1.55;
+  }
+  pre code { background: none; padding: 0; font-size: .845rem; }
+
+  .table-wrap { overflow-x: auto; margin: 1rem 0; }
+  table { border-collapse: collapse; width: 100%; font-size: .93rem; }
+  th, td {
+    border: 1px solid var(--border);
+    padding: .55rem .75rem;
+    text-align: left;
+    vertical-align: top;
+  }
+  th { background: var(--code-bg); font-weight: 600; }
+
+  blockquote {
+    margin: 1.2rem 0; padding: .1rem 1rem;
+    border-left: 4px solid var(--border); color: var(--muted);
+  }
+
+  .box { border-radius: 8px; padding: .9rem 1.1rem; margin: 1.2rem 0; border-left-width: 4px; border-left-style: solid; }
+  .box p:first-child { margin-top: 0; }
+  .box p:last-child { margin-bottom: 0; }
+  .box-tip  { background: var(--tip-bg);  border-left-color: var(--tip-border); }
+  .box-warn { background: var(--warn-bg); border-left-color: var(--warn-border); }
+  .box-ok   { background: var(--ok-bg);   border-left-color: var(--ok-border); }
+  .box-bad  { background: var(--bad-bg);  border-left-color: var(--bad-border); }
+  @media (prefers-color-scheme: dark) { .box { color: var(--fg); } }
+
+  .toc {
+    background: var(--code-bg); border: 1px solid var(--border);
+    border-radius: 8px; padding: 1rem 1.4rem; margin: 2rem 0;
+  }
+  .toc strong { display: block; margin-bottom: .4rem; }
+  .toc ol { margin: 0; }
+  .toc li { margin: .25rem 0; }
+
+  .lead {
+    font-size: 1.05rem; background: var(--code-bg);
+    border-left: 4px solid var(--accent);
+    padding: 1rem 1.2rem; border-radius: 8px; margin: 1.5rem 0 2rem;
+  }
+
+  hr { border: none; border-top: 1px solid var(--border); margin: 3rem 0; }
+  .chk { list-style: none; padding-left: 0; }
+  .chk li::before { content: "☐ "; color: var(--muted); }
+</style>
+</head>
+<body>
+<main>
+
+<h1>Spring이 <code>.env</code>를 읽지 않아 앱이 기동하지 못한 문제</h1>
+<p class="subtitle">
+  SceneLog 트러블슈팅 로그 2호 · 2026-07-31 · 신입 개발자 관점 상세 해설판<br>
+  같은 내용의 마크다운: <a href="2026-07-31-spring-env-not-loaded.md">2026-07-31-spring-env-not-loaded.md</a>
+</p>
+
+<div class="lead">
+  <strong>한 줄 요약</strong><br>
+  Spring Boot는 <code>.env</code> 파일을 자동으로 읽지 않는다. <code>.env</code>는 Docker Compose·Node.js 진영의
+  관례일 뿐, Spring 입장에서는 그냥 텍스트 파일이다. IDE에서 실행하면 그 안의 값이 주입되지 않아 설정이 빈 값이 된다.
+</div>
+
+<div class="toc">
+  <strong>목차</strong>
+  <ol>
+    <li><a href="#s1">이슈 — 증상</a></li>
+    <li><a href="#s2">스택트레이스 읽는 법 ★</a></li>
+    <li><a href="#s3">원인 — 3단계 추적</a></li>
+    <li><a href="#s4">진짜 원인 — Spring은 .env를 모른다</a></li>
+    <li><a href="#s5">대응 — 설정 한 줄</a></li>
+    <li><a href="#s6">다른 방법은 왜 안 골랐나</a></li>
+    <li><a href="#s7">여기서 배운 것 2가지</a></li>
+    <li><a href="#s8">다음에 비슷한 일이 생기면 — 체크리스트</a></li>
+    <li><a href="#s9">재발 방지</a></li>
+    <li><a href="#s10">면접에서 이 경험을 말한다면</a></li>
+  </ol>
+</div>
+
+<h2 id="s1">1. 이슈 — 증상</h2>
+<p>IntelliJ에서 앱을 실행하자 기동하지 못하고 수십 줄짜리 스택트레이스와 함께 종료됐다.</p>
+<pre><code>org.springframework.beans.factory.UnsatisfiedDependencyException:
+Error creating bean with name 'authController' ...</code></pre>
+<p>
+  <strong>바로 전까지 잘 되던 코드였고, 같은 코드를 다른 방식으로 실행했을 때는 정상 기동했다.</strong>
+  그래서 “코드가 잘못됐나?”를 먼저 의심했지만, 결론적으로 코드는 문제가 없었다.
+</p>
+
+<h2 id="s2">2. 스택트레이스 읽는 법 ★ 이 절이 가장 쓸모 있다</h2>
+<p>에러 메시지가 50줄이 넘어가면 신입은 대개 맨 위만 보고 당황한다. <strong>읽는 순서가 정해져 있다.</strong></p>
+
+<h3>규칙: 맨 아래 <code>Caused by</code>가 진짜 원인이다</h3>
+<p>
+  Java의 예외는 <strong>양파처럼 겹쳐서</strong> 전달된다. 위쪽은 “그래서 나도 실패했다”는 <strong>결과</strong>이고,
+  맨 아래가 <strong>최초로 터진 지점</strong>이다.
+</p>
+<pre><code>authController를 못 만들었다
+   └ 왜? authService가 없어서
+        └ 왜? jwtProvider가 없어서
+             └ 왜? jwtProvider 생성자에서 예외가 났다
+                  └ 왜? ★ "jwt.secret이 너무 짧습니다(0바이트)"   ← 진짜 원인</code></pre>
+<p>
+  Spring은 부품(Bean)을 조립해서 앱을 만든다. <strong>부품 하나가 없으면 그걸 쓰는 부품도 못 만들어지고,
+  그게 연쇄적으로 위로 전파된다.</strong> 그래서 스택트레이스가 길어진다. 길이에 겁먹을 필요 없다.
+</p>
+
+<h3>실전 요령 3가지</h3>
+<div class="table-wrap">
+<table>
+  <thead><tr><th>요령</th><th>방법</th></tr></thead>
+  <tbody>
+    <tr><td>1. <code>Caused by</code>를 전부 찾아 <strong>마지막 것</strong>을 본다</td><td>IDE에서 <code>Ctrl+F</code> → <code>Caused by</code></td></tr>
+    <tr><td>2. 패키지 이름이 <strong>내 코드</strong>인 줄을 찾는다</td><td><code>at com.scenelog.auth.JwtProvider.&lt;init&gt;(JwtProvider.java:50)</code> ← 내 파일 50번째 줄</td></tr>
+    <tr><td>3. <code>at org.springframework...</code>, <code>at java.base...</code> 줄은 <strong>건너뛴다</strong></td><td>라이브러리 내부라 볼 필요 없다</td></tr>
+  </tbody>
+</table>
+</div>
+<p>이번 경우 2번 요령으로 <code>JwtProvider.java:50</code>을 바로 찾을 수 있었다.</p>
+
+<h2 id="s3">3. 원인 — 3단계 추적</h2>
+
+<h3>1단계: 생성자가 설정값을 요구했다</h3>
+<pre><code>// src/main/java/com/scenelog/auth/JwtProvider.java
+public JwtProvider(@Value("${jwt.secret}") String secret,
+                   @Value("${jwt.expiry-seconds}") long expirySeconds) {</code></pre>
+<p><code>@Value("${jwt.secret}")</code> = “설정에서 <code>jwt.secret</code>이라는 값을 찾아 여기에 넣어줘”</p>
+
+<h3>2단계: 설정 파일이 그 값을 환경변수에게 넘겼다</h3>
+<pre><code># src/main/resources/application.yml
+jwt:
+  secret: ${JWT_SECRET:}</code></pre>
+<p><strong><code>${이름:기본값}</code> 문법</strong>이다. 콜론 뒤에 아무것도 없으므로 <strong>기본값 = 빈 문자열</strong>이다.</p>
+<div class="table-wrap">
+<table>
+  <thead><tr><th>쓰는 법</th><th>못 찾았을 때</th></tr></thead>
+  <tbody>
+    <tr><td><code>${JWT_SECRET}</code></td><td><code>Could not resolve placeholder 'JWT_SECRET'</code> 에러</td></tr>
+    <tr><td><code>${JWT_SECRET:}</code></td><td>조용히 <code>""</code> 사용 ← <strong>이번 케이스</strong></td></tr>
+    <tr><td><code>${JWT_SECRET:hello}</code></td><td>조용히 <code>"hello"</code> 사용</td></tr>
+  </tbody>
+</table>
+</div>
+
+<h3>3단계: 빈 문자열이 들어가 검증에 걸렸다</h3>
+<pre><code>byte[] bytes = secret.getBytes(StandardCharsets.UTF_8);   // "" → 길이 0
+if (bytes.length &lt; 32) {
+    throw new IllegalStateException(
+        "jwt.secret이 너무 짧습니다(%d바이트). 32바이트 이상 필요 — .env의 JWT_SECRET을 확인하세요."
+            .formatted(bytes.length));
+}</code></pre>
+<p>에러 메시지의 <strong>“(0바이트)”가 바로 이 빈 문자열</strong>이었다.</p>
+
+<h2 id="s4">4. 진짜 원인 — Spring은 <code>.env</code>를 모른다</h2>
+<p>
+  프로젝트 폴더에 <code>.env</code> 파일이 있고 그 안에 <code>JWT_SECRET=...</code>이 분명히 적혀 있었다.
+  그런데도 못 찾은 이유는, <strong>Spring이 설정값을 찾는 장소 목록에 <code>.env</code>가 없기 때문</strong>이다.
+</p>
+<pre><code>Spring이 값을 찾는 순서 (위가 더 강함)
+
+  1순위   실행 명령줄 인자      java -jar app.jar --jwt.secret=xxx
+  2순위   OS 환경변수          ← JWT_SECRET을 여기서 찾으려 했다
+  3순위   application.yml
+  4순위   코드에 쓴 기본값
+
+  ✗       .env 파일            ← 목록에 없다!</code></pre>
+<p>
+  <code>.env</code>는 <strong>Docker Compose와 Node.js 진영의 관례</strong>다. Docker Compose는 <code>.env</code>를
+  자동으로 읽지만, Spring은 그런 약속을 한 적이 없다. 폴더에 있어도 쳐다보지 않는다.
+</p>
+
+<h3>“왜 어떤 실행 방식은 되고, IDE에서는 안 되나?”</h3>
+<p>터미널에서 아래 명령을 먼저 실행한 뒤 앱을 띄우면 정상 동작했다:</p>
+<pre><code>Get-Content .env | Where-Object { $_ -match '^\s*[A-Z_]+=' } | ForEach-Object {
+    $kv = $_ -split '=', 2
+    [System.Environment]::SetEnvironmentVariable($kv[0].Trim(), $kv[1].Trim())
+}</code></pre>
+<p>
+  이 명령이 하는 일은 <strong><code>.env</code>를 한 줄씩 읽어 OS 환경변수로 수동 등록</strong>하는 것이다.
+  그러면 위 표의 <strong>2순위</strong>에서 값이 발견된다.
+</p>
+<p>
+  IntelliJ의 ▶ Run 버튼은 이런 과정을 하지 않는다. <strong>같은 코드, 다른 환경.</strong>
+  개발에서 가장 흔한 함정인 <strong>“제 컴퓨터에서는 되는데요”</strong>의 축소판이다.
+</p>
+<div class="box box-tip">
+  <p>💡 이런 문제를 만나면 <strong>“코드가 다른가?”보다 “환경이 다른가?”를 먼저 의심</strong>하는 습관이 시간을 아낀다.
+  코드는 git이 똑같음을 보장해 주지만, 환경은 아무도 보장해 주지 않는다.</p>
+</div>
+
+<h2 id="s5">5. 대응 — 설정 한 줄 추가</h2>
+<p><strong>Java 코드는 한 글자도 바꾸지 않았다.</strong> <code>application.yml</code>에 한 줄만 추가했다.</p>
+<pre><code>  spring:
+    application:
+      name: scenelog
+
++   config:
++     import: "optional:file:.env[.properties]"
++
+    datasource:
+      url: jdbc:postgresql://${POSTGRES_HOST:localhost}:5432/...</code></pre>
+
+<h3>문법 분해</h3>
+<pre><code>"optional:file:.env[.properties]"
+ └───┬───┘└─┬─┘└─┬─┘└─────┬────┘
+     │      │    │        └─ 이 파일을 .properties 형식으로 해석하라
+     │      │    └────────── 읽을 파일 이름
+     │      └─────────────── 파일 시스템에서 찾아라 (classpath 아님)
+     └────────────────────── 파일이 없어도 에러 내지 말고 그냥 넘어가라</code></pre>
+<div class="table-wrap">
+<table>
+  <thead><tr><th>조각</th><th>없으면 어떻게 되나</th></tr></thead>
+  <tbody>
+    <tr><td><code>optional:</code></td><td><strong>EC2 서버나 CI에는 <code>.env</code>가 없다.</strong> 이게 없으면 그런 환경에서 앱이 아예 안 뜬다</td></tr>
+    <tr><td><code>file:</code></td><td><code>classpath:</code>가 기본이라 <code>src/main/resources</code> 안에서 찾는다. 우리 <code>.env</code>는 프로젝트 루트에 있다</td></tr>
+    <tr><td><code>[.properties]</code></td><td>Spring은 <strong>확장자로 파일 형식을 판단</strong>한다. <code>.env</code>는 모르는 확장자라 “properties 형식이야”라고 알려줘야 한다</td></tr>
+  </tbody>
+</table>
+</div>
+
+<h3>왜 하필 <code>.properties</code> 형식인가?</h3>
+<p>두 형식이 사실상 같기 때문이다:</p>
+<pre><code># .properties 형식              # .env 파일
+DB_USER=admin                   JWT_SECRET=abc123xyz
+DB_PASS=secret                  TMDB_API_KEY=06a5...
+# 주석은 샵으로                  # 주석도 샵</code></pre>
+<p><strong>한 줄에 <code>이름=값</code>, <code>#</code>으로 주석</strong> — 완전히 동일하다. 그래서 그대로 읽힌다.</p>
+
+<h3>배포 환경과 충돌하지 않는 이유</h3>
+<p><code>spring.config.import</code>로 읽은 값은 <strong>OS 환경변수보다 우선순위가 낮다.</strong></p>
+<pre><code>   강함  ↑   OS 환경변수         ← EC2에서는 여기에 진짜 값 (이게 이긴다)
+         │   .env (import)      ← 로컬 개발용
+   약함  ↓   application.yml 기본값</code></pre>
+<div class="box box-ok">
+  <p>즉 <strong>로컬에서는 <code>.env</code>가, 서버에서는 진짜 환경변수가</strong> 쓰인다.
+  한 줄로 두 환경을 모두 만족시킨 셈이다.</p>
+</div>
+
+<h2 id="s6">6. 다른 방법은 왜 안 골랐나</h2>
+<div class="table-wrap">
+<table>
+  <thead><tr><th>방법</th><th>문제점</th></tr></thead>
+  <tbody>
+    <tr><td><code>application.yml</code>에 값 직접 쓰기</td><td><strong>public 저장소라 시크릿이 그대로 유출된다.</strong> 절대 안 됨</td></tr>
+    <tr><td>IntelliJ EnvFile 플러그인</td><td>그 사람 IDE에서만 동작. 저장소에 남지 않아 다른 컴퓨터·CI에서 또 막힌다</td></tr>
+    <tr><td>OS 환경변수로 영구 등록</td><td>동작은 하지만 <strong>눈에 보이지 않는 설정</strong>이라, 새 컴퓨터에서 원인 모를 실패를 반복한다</td></tr>
+    <tr><td>실행할 때마다 셸에서 주입</td><td>매번 해야 하고, <strong>IDE의 ▶ Run 버튼으로는 안 된다</strong></td></tr>
+    <tr><td>✅ <code>spring.config.import</code></td><td>설정이 저장소에 남고, Run 버튼으로 그냥 되고, 서버에서도 안전</td></tr>
+  </tbody>
+</table>
+</div>
+<p><strong>선택 기준</strong>: “이 설정이 <strong>저장소 안에 남아서</strong>, <strong>누가 어디서 clone 해도</strong> 동작하는가?”</p>
+
+<h2 id="s7">7. 여기서 배운 것 2가지</h2>
+
+<h3>① fail-fast — 일찍, 크게, 명확하게 실패시켜라</h3>
+<p>생성자에 넣어둔 이 검사가 이번 문제를 <strong>기동 시점에</strong> 잡아냈다:</p>
+<pre><code>if (bytes.length &lt; 32) {
+    throw new IllegalStateException(
+        "jwt.secret이 너무 짧습니다(0바이트). 32바이트 이상 필요 — .env의 JWT_SECRET을 확인하세요.");
+}</code></pre>
+<div class="box box-bad">
+  <p><strong>이 검사가 없었다면?</strong> 앱은 멀쩡히 떴다가, 나중에 <strong>누군가 로그인을 시도하는 순간</strong>
+  <code>WeakKeyException</code> 같은 알 수 없는 500 에러가 났을 것이다.
+  그때는 “로그인이 왜 안 되지?”부터 시작해 훨씬 오래 헤맸을 것이다.</p>
+</div>
+<div class="table-wrap">
+<table>
+  <thead><tr><th></th><th>기동 시점에 실패</th><th>사용 시점에 실패</th></tr></thead>
+  <tbody>
+    <tr><td>발견 시기</td><td>즉시</td><td>한참 뒤, 어쩌면 운영 중</td></tr>
+    <tr><td>에러 메시지</td><td>원인과 해결법 명시</td><td>라이브러리 내부 예외</td></tr>
+    <tr><td>영향</td><td>나만</td><td>사용자</td></tr>
+  </tbody>
+</table>
+</div>
+<p>
+  <strong>필수 설정값은 생성자에서 검증하라.</strong> 그리고 <strong>에러 메시지에 해결 방법을 함께 적어라.</strong>
+  (<code>".env의 JWT_SECRET을 확인하세요"</code> 한마디가 디버깅 시간을 크게 줄인다.)
+</p>
+
+<h3>② <code>${VAR:}</code> 의 빈 기본값은 함정이 될 수 있다</h3>
+<pre><code>jwt.secret: ${JWT_SECRET:}    # 못 찾아도 조용히 빈 문자열 → 나중에 이상한 데서 터짐
+jwt.secret: ${JWT_SECRET}     # 못 찾으면 즉시 "Could not resolve placeholder" → 원인 명확</code></pre>
+<p><strong>기본값을 줄 때는 “이 값이 없어도 앱이 정상인가?”를 먼저 물어야 한다.</strong></p>
+<div class="table-wrap">
+<table>
+  <thead><tr><th>설정</th><th>기본값을 줘도 되나</th></tr></thead>
+  <tbody>
+    <tr><td><code>server.port</code></td><td>✅ 없으면 8080 쓰면 됨</td></tr>
+    <tr><td><code>POSTGRES_HOST</code></td><td>✅ 로컬 개발은 localhost</td></tr>
+    <tr><td><strong><code>JWT_SECRET</code></strong></td><td>❌ <strong>없으면 앱이 존재할 이유가 없다</strong></td></tr>
+  </tbody>
+</table>
+</div>
+<p>시크릿·API 키처럼 <strong>없으면 안 되는 값은 기본값을 주지 않는 게 더 안전하다.</strong></p>
+
+<h2 id="s8">8. 다음에 비슷한 일이 생기면 — 체크리스트</h2>
+
+<h3>앱이 기동하지 않을 때</h3>
+<ul class="chk">
+  <li>스택트레이스 <strong>맨 아래 <code>Caused by</code></strong>를 먼저 읽었는가</li>
+  <li><code>at com.내패키지...</code>로 시작하는 줄을 찾아 <strong>내 파일 몇 번째 줄</strong>인지 확인했는가</li>
+  <li>에러 메시지를 <strong>그대로 읽었는가</strong> (이번엔 메시지에 답이 있었다)</li>
+</ul>
+
+<h3>“다른 데선 되는데 여기선 안 될 때”</h3>
+<ul class="chk">
+  <li>코드가 아니라 <strong>환경 차이</strong>를 먼저 의심했는가</li>
+  <li>환경변수가 실제로 들어갔는지 확인했는가</li>
+  <li>실행 방법이 다른가 (IDE / gradlew / java -jar / docker)</li>
+</ul>
+
+<h3>설정값이 비어 있을 때 확인 순서</h3>
+<ol>
+  <li><code>application.yml</code>에 그 키가 있는가</li>
+  <li><code>${환경변수이름}</code>이 맞는 이름인가 (오타·대소문자)</li>
+  <li>그 환경변수가 <strong>실제로 존재</strong>하는가
+    <ul>
+      <li>PowerShell: <code>$env:JWT_SECRET</code></li>
+      <li>Linux/Mac: <code>echo $JWT_SECRET</code></li>
+    </ul>
+  </li>
+  <li><code>.env</code>에만 있고 환경변수로는 없는 상태 아닌가 ← <strong>이번 케이스</strong></li>
+</ol>
+
+<h3>값이 잘 주입됐는지 빠르게 확인하는 법</h3>
+<pre><code># application.yml에 임시 추가 (확인 후 반드시 제거)
+logging:
+  level:
+    org.springframework.boot.context.config: DEBUG</code></pre>
+<p>Spring이 <strong>어떤 설정 파일들을 어떤 순서로 읽었는지</strong> 로그로 보여준다.</p>
+<div class="box box-warn">
+  <p>⚠️ 시크릿 값 자체를 로그로 찍지 말 것. 로그 파일에 남아 유출 경로가 된다.</p>
+</div>
+
+<h2 id="s9">9. 재발 방지</h2>
+<ol>
+  <li><strong>필수 설정값은 생성자에서 fail-fast 검증</strong> + 에러 메시지에 해결법 명시</li>
+  <li><strong>시크릿에는 기본값(<code>:</code>)을 주지 않는다</strong></li>
+  <li><code>.env</code> 같은 비표준 설정 파일은 <strong><code>spring.config.import</code>로 명시적으로 편입</strong>한다</li>
+  <li><code>.env.example</code>을 저장소에 두어 <strong>어떤 키가 필요한지</strong> 알 수 있게 한다 (값은 비운 채로)</li>
+</ol>
+
+<h2 id="s10">10. 면접에서 이 경험을 말한다면</h2>
+<blockquote>
+  <p>“로컬에서 앱이 기동하지 않는 문제가 있었습니다.
+  스택트레이스의 마지막 <code>Caused by</code>를 보니 JWT 시크릿이 0바이트라는 메시지가 있었고,
+  원인은 <strong>Spring이 <code>.env</code> 파일을 자동으로 읽지 않는다</strong>는 것이었습니다.
+  <code>.env</code>는 Docker Compose 쪽 관례이고 Spring의 설정 소스 목록에 없어서,
+  IDE로 실행할 때는 값이 주입되지 않았습니다.</p>
+
+  <p><code>spring.config.import</code>로 <code>.env</code>를 설정 소스에 편입해서 해결했는데,
+  <code>optional:</code>을 붙여 파일이 없는 서버 환경에서도 기동되게 했고,
+  OS 환경변수가 우선순위가 더 높다는 점을 이용해 <strong>로컬은 <code>.env</code>, 서버는 실제 환경변수</strong>를
+  쓰도록 한 줄로 정리했습니다.</p>
+
+  <p>이 문제를 빨리 찾을 수 있었던 건 생성자에 시크릿 길이 검증을 넣어둬서
+  <strong>기동 시점에 명확한 메시지로 실패</strong>했기 때문입니다. 그 검사가 없었다면
+  로그인 시점에 원인 불명의 500이 났을 겁니다.”</p>
+</blockquote>
+
+<h3>면접관이 이어서 물을 만한 것</h3>
+<ul>
+  <li><strong>“왜 <code>optional:</code>을 붙였나요?”</strong> → 서버·CI에는 <code>.env</code>가 없으므로. 없어도 기동돼야 한다</li>
+  <li><strong>“서버에서는 시크릿을 어떻게 넣나요?”</strong> → OS 환경변수. import보다 우선순위가 높아 자동으로 덮어쓴다</li>
+  <li><strong>“시크릿을 코드에 넣으면 안 되는 이유는?”</strong> → 저장소 이력에 영구히 남는다. 파일을 지워도 과거 커밋에 남아 있다</li>
+</ul>
+
+<hr>
+<p class="subtitle">SceneLog · 콘텐츠 반응 타임라인 분석 백엔드 · 트러블슈팅 로그 2호</p>
+
+</main>
+</body>
+</html>
