@@ -65,4 +65,13 @@ public class Content {
     void onCreate() {
         this.createdAt = OffsetDateTime.now();
     }
+
+    /** ETL 재수집 시 UPSERT의 UPDATE 절 — tmdb_id는 식별자이므로 바꾸지 않는다 */
+    public void updateFrom(String title, ContentType contentType,
+                           Integer durationSec, LocalDate releaseDate) {
+        this.title = title;
+        this.contentType = contentType;
+        this.durationSec = durationSec;
+        this.releaseDate = releaseDate;
+    }
 }
