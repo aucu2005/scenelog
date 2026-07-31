@@ -1,0 +1,330 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>JWT 구현 가이드 (신입용) — SceneLog</title>
+<style>
+  :root {
+    --bg: #ffffff; --fg: #1f2328; --muted: #656d76; --border: #d8dee4;
+    --code-bg: #f6f8fa; --accent: #0969da;
+    --warn-bg: #fff8c5; --warn-border: #d4a72c;
+    --ok-bg: #dafbe1; --ok-border: #2da44e;
+    --bad-bg: #ffebe9; --bad-border: #cf222e;
+    --tip-bg: #ddf4ff; --tip-border: #54aeff;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #0d1117; --fg: #e6edf3; --muted: #9198a1; --border: #30363d;
+      --code-bg: #161b22; --accent: #4493f8;
+      --warn-bg: #2d2412; --warn-border: #9e6a03;
+      --ok-bg: #0f2d18; --ok-border: #238636;
+      --bad-bg: #2d1315; --bad-border: #da3633;
+      --tip-bg: #0d2538; --tip-border: #316dca;
+    }
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; padding: 2.5rem 1.25rem 6rem; background: var(--bg); color: var(--fg);
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "Malgun Gothic",
+                 "Apple SD Gothic Neo", "Noto Sans KR", Roboto, sans-serif;
+    line-height: 1.75; font-size: 16px; word-break: keep-all; overflow-wrap: break-word;
+  }
+  main { max-width: 860px; margin: 0 auto; }
+  h1 { font-size: 1.85rem; line-height: 1.35; margin: 0 0 .5rem; padding-bottom: .6rem; border-bottom: 2px solid var(--border); }
+  h2 { font-size: 1.35rem; margin: 3rem 0 1rem; padding-bottom: .4rem; border-bottom: 1px solid var(--border); }
+  h3 { font-size: 1.08rem; margin: 2rem 0 .6rem; }
+  .subtitle { color: var(--muted); font-size: .9rem; margin: 0 0 2rem; }
+  .subtitle a { color: var(--accent); }
+  p, li { margin: .6rem 0; }
+  ul, ol { padding-left: 1.4rem; }
+  a { color: var(--accent); }
+  code {
+    background: var(--code-bg); padding: .15em .4em; border-radius: 5px;
+    font-family: "Cascadia Code", Consolas, "D2Coding", "SF Mono", Menlo, monospace; font-size: .875em;
+  }
+  pre { background: var(--code-bg); border: 1px solid var(--border); border-radius: 8px; padding: 1rem; overflow-x: auto; line-height: 1.55; }
+  pre code { background: none; padding: 0; font-size: .845rem; }
+  .table-wrap { overflow-x: auto; margin: 1rem 0; }
+  table { border-collapse: collapse; width: 100%; font-size: .93rem; }
+  th, td { border: 1px solid var(--border); padding: .55rem .75rem; text-align: left; vertical-align: top; }
+  th { background: var(--code-bg); font-weight: 600; }
+  blockquote { margin: 1.2rem 0; padding: .1rem 1rem; border-left: 4px solid var(--border); color: var(--muted); }
+  .box { border-radius: 8px; padding: .9rem 1.1rem; margin: 1.2rem 0; border-left: 4px solid; }
+  .box p:first-child { margin-top: 0; } .box p:last-child { margin-bottom: 0; }
+  .box-tip  { background: var(--tip-bg);  border-left-color: var(--tip-border); }
+  .box-warn { background: var(--warn-bg); border-left-color: var(--warn-border); }
+  .box-ok   { background: var(--ok-bg);   border-left-color: var(--ok-border); }
+  .toc { background: var(--code-bg); border: 1px solid var(--border); border-radius: 8px; padding: 1rem 1.4rem; margin: 2rem 0; }
+  .toc strong { display: block; margin-bottom: .4rem; }
+  .toc ol { margin: 0; } .toc li { margin: .25rem 0; }
+  .lead { font-size: 1.02rem; background: var(--code-bg); border-left: 4px solid var(--accent); padding: 1rem 1.2rem; border-radius: 8px; margin: 1.5rem 0 2rem; }
+  hr { border: none; border-top: 1px solid var(--border); margin: 3rem 0; }
+</style>
+</head>
+<body>
+<main>
+
+<h1>JWT 구현 가이드 (신입용)</h1>
+<p class="subtitle">
+  SceneLog day1 학습 자료 · 2026-07-31 · 실제 코드: <code>src/main/java/com/scenelog/auth/</code><br>
+  같은 내용의 마크다운: <a href="JWT-구현-가이드.md">JWT-구현-가이드.md</a>
+</p>
+
+<div class="lead">
+  코드를 그대로 옮겨 적어도 된다. <strong>중요한 건 타이핑이 아니라 "왜 이렇게 하는가"를 설명할 수 있게 되는 것</strong>이다.
+  면접에서 나오는 질문은 "코드 보여주세요"가 아니라 <strong>"왜 이렇게 하셨어요?"</strong>다.
+</div>
+
+<div class="toc">
+  <strong>목차</strong>
+  <ol>
+    <li><a href="#s1">JWT가 뭔가 — 놀이공원 팔찌 비유</a></li>
+    <li><a href="#s2">우리가 만들 3개가 각각 하는 일</a></li>
+    <li><a href="#s3">createToken 작성하기</a></li>
+    <li><a href="#s4">getUserId 작성하기</a></li>
+    <li><a href="#s5">isValid 작성하기</a></li>
+    <li><a href="#s6">테스트로 확인</a></li>
+    <li><a href="#s7">AuthService 작성하기</a></li>
+    <li><a href="#s8">JwtAuthenticationFilter 작성하기</a></li>
+    <li><a href="#s9">최종 검증 — Swagger 7단계</a></li>
+    <li><a href="#s10">면접 대비 질문 4개</a></li>
+  </ol>
+</div>
+
+<h2 id="s1">1. JWT가 뭔가 — 놀이공원 팔찌 비유</h2>
+<p>로그인한 사용자를 서버가 어떻게 기억할까?</p>
+<p><strong>옛날 방식(세션)</strong>: 서버가 "3번 손님은 홍길동"이라고 <strong>명단을 들고 있는다.</strong><br>
+→ 손님이 많아지면 명단이 무거워지고, 서버를 여러 대로 늘리면 명단을 공유해야 한다.</p>
+<p><strong>JWT 방식</strong>: 서버가 <strong>위조 불가능한 팔찌</strong>를 채워 보낸다. 팔찌에 "홍길동, 42번, 오후 3시까지 유효"가 적혀 있다.<br>
+→ 서버는 아무것도 기억하지 않는다. 팔찌만 보면 되니까. 이게 <strong>무상태(stateless)</strong>다.</p>
+<p>팔찌를 위조하지 못하는 이유는 <strong>서명(signature)</strong> 때문이다.
+서버만 아는 비밀키로 도장을 찍어두면, 내용을 한 글자라도 바꾸는 순간 도장이 안 맞는다.</p>
+
+<h3>토큰 생김새</h3>
+<pre><code>eyJhbGciOiJIUzI1NiJ9  .  eyJzdWIiOiI0MiIsImV4cCI6MTc...  .  4f2Xb9...
+└─── 헤더 ───┘            └────── 내용(payload) ──────┘      └ 서명 ┘
+   무슨 알고리즘?              누구인지 · 언제까지               위조 방지 도장</code></pre>
+<div class="box box-warn">
+  <p>⚠️ <strong>중요</strong>: 가운데 "내용" 부분은 <strong>암호화가 아니라 인코딩</strong>이다. 누구나 열어볼 수 있다.
+  → 그래서 <strong>비밀번호 같은 걸 토큰에 넣으면 안 된다.</strong> 우리는 userId·email·role만 넣는다.</p>
+</div>
+
+<h2 id="s2">2. 우리가 만들 3개가 각각 하는 일</h2>
+<div class="table-wrap">
+<table>
+  <thead><tr><th>메서드</th><th>팔찌 비유</th><th>언제 호출되나</th></tr></thead>
+  <tbody>
+    <tr><td><code>createToken</code></td><td>팔찌를 <strong>만들어 준다</strong></td><td>로그인 성공 시 (<code>AuthService.login</code>)</td></tr>
+    <tr><td><code>isValid</code></td><td>팔찌가 <strong>진짜인지 확인</strong></td><td>모든 요청마다 (<code>JwtAuthenticationFilter</code>)</td></tr>
+    <tr><td><code>getUserId</code></td><td>팔찌에서 <strong>누구인지 읽는다</strong></td><td>진짜로 확인된 후</td></tr>
+  </tbody>
+</table>
+</div>
+
+<h2 id="s3">3. <code>createToken</code> 작성하기</h2>
+<p>파일: <code>src/main/java/com/scenelog/auth/JwtProvider.java</code></p>
+<pre><code>public String createToken(Long userId, String email, Role role) {
+    Date now = new Date();
+    Date expiry = new Date(now.getTime() + expirySeconds * 1000);
+
+    return Jwts.builder()
+            .subject(String.valueOf(userId))
+            .claim("email", email)
+            .claim("role", role.name())
+            .issuedAt(now)
+            .expiration(expiry)
+            .signWith(key)
+            .compact();
+}</code></pre>
+<h3>한 줄씩 설명</h3>
+<div class="table-wrap">
+<table>
+  <thead><tr><th>줄</th><th>뜻</th></tr></thead>
+  <tbody>
+    <tr><td><code>new Date()</code></td><td>지금 시각</td></tr>
+    <tr><td><code>now.getTime() + expirySeconds * 1000</code></td><td><code>getTime()</code>은 <strong>밀리초</strong>를 주는데 우리 설정(<code>expiry-seconds</code>)은 <strong>초</strong> 단위라 1000을 곱해 단위를 맞춘다. 3600초 = 1시간 뒤</td></tr>
+    <tr><td><code>.subject(...)</code></td><td>토큰의 "주인공". 표준 필드라 이름이 정해져 있고, 문자열만 받으므로 <code>String.valueOf</code>로 변환</td></tr>
+    <tr><td><code>.claim("email", ...)</code></td><td>표준에 없는 값은 <code>claim</code>으로 자유롭게 넣는다</td></tr>
+    <tr><td><code>.claim("role", role.name())</code></td><td><code>role.name()</code>은 enum을 문자열로 → <code>"ROLE_USER"</code></td></tr>
+    <tr><td><code>.issuedAt</code> / <code>.expiration</code></td><td>발급 시각 / 만료 시각. 만료는 <strong>라이브러리가 검증할 때 자동으로 확인</strong>해 준다</td></tr>
+    <tr><td><code>.signWith(key)</code></td><td>위조 방지 도장. <code>key</code>는 생성자에서 <code>.env</code>의 <code>JWT_SECRET</code>으로 이미 만들어 뒀다</td></tr>
+    <tr><td><code>.compact()</code></td><td>지금까지 조립한 걸 최종 문자열로 뽑아낸다</td></tr>
+  </tbody>
+</table>
+</div>
+<blockquote><p><strong>왜 <code>.compact()</code>가 마지막인가</strong>: 앞의 메서드들은 전부 "설정만 쌓는" 단계이고,
+실제로 문자열을 만드는 건 이 호출이다. 이런 방식을 빌더 패턴이라 부른다.</p></blockquote>
+
+<h2 id="s4">4. <code>getUserId</code> 작성하기</h2>
+<pre><code>public Long getUserId(String token) {
+    Claims claims = parse(token);
+    return Long.valueOf(claims.getSubject());
+}</code></pre>
+<p><code>parse()</code>는 <strong>클래스 맨 아래에 이미 만들어져 있다.</strong> 그대로 쓰면 된다.
+<code>getSubject()</code>가 아까 넣은 <code>String.valueOf(userId)</code>를 돌려주므로 <code>Long</code>으로 되돌린다.</p>
+
+<h2 id="s5">5. <code>isValid</code> 작성하기</h2>
+<pre><code>public boolean isValid(String token) {
+    try {
+        parse(token);
+        return true;
+    } catch (JwtException | IllegalArgumentException e) {
+        return false;
+    }
+}</code></pre>
+<p><strong>필요한 import</strong> (파일 위쪽에):</p>
+<pre><code>import io.jsonwebtoken.JwtException;</code></pre>
+<h3>왜 try-catch인가</h3>
+<p><code>parse()</code>는 문제가 있으면 <strong>예외를 던진다.</strong> 문제 종류가 여러 가지다:</p>
+<div class="table-wrap">
+<table>
+  <thead><tr><th>상황</th><th>던지는 예외</th></tr></thead>
+  <tbody>
+    <tr><td>서명이 안 맞음(위조)</td><td><code>SignatureException</code></td></tr>
+    <tr><td>기한 지남</td><td><code>ExpiredJwtException</code></td></tr>
+    <tr><td>형식이 깨짐</td><td><code>MalformedJwtException</code></td></tr>
+    <tr><td>빈 문자열</td><td><code>IllegalArgumentException</code></td></tr>
+  </tbody>
+</table>
+</div>
+<p>앞의 3개는 전부 <code>JwtException</code>의 자식이라 <strong><code>JwtException</code> 하나로 잡힌다.</strong>
+빈 문자열만 계열이 달라서 <code>IllegalArgumentException</code>을 따로 적었다.</p>
+<div class="box box-tip">
+  <p><strong>설계 의도</strong>: 호출하는 쪽(필터)은 "왜 안 되는지"까지 알 필요가 없다. <strong>"쓸 수 있나 없나"만</strong> 알면 된다.
+  그래서 온갖 예외를 <code>false</code> 하나로 흡수한다.</p>
+</div>
+
+<h2 id="s6">6. 테스트 돌려서 초록 확인</h2>
+<pre><code>.\gradlew.bat test --tests "com.scenelog.auth.JwtProviderTest" --console=plain</code></pre>
+<p><code>BUILD SUCCESSFUL</code>이 나오면 6개 전부 통과다. 여기까지가 첫 관문.</p>
+
+<h2 id="s7">7. <code>AuthService</code> 작성하기</h2>
+<pre><code>@Transactional
+public void signup(SignupRequest request) {
+    if (userRepository.existsByEmail(request.email())) {
+        throw new ApiException(HttpStatus.CONFLICT, "이미 가입된 이메일입니다");
+    }
+
+    User user = User.builder()
+            .email(request.email())
+            .passwordHash(passwordEncoder.encode(request.password()))
+            .nickname(request.nickname())
+            .role(Role.ROLE_USER)
+            .build();
+
+    userRepository.save(user);
+}
+
+@Transactional(readOnly = true)
+public TokenResponse login(LoginRequest request) {
+    User user = userRepository.findByEmail(request.email())
+            .orElseThrow(() -&gt; new ApiException(
+                    HttpStatus.UNAUTHORIZED, "이메일 또는 비밀번호가 올바르지 않습니다"));
+
+    if (!passwordEncoder.matches(request.password(), user.getPasswordHash())) {
+        throw new ApiException(HttpStatus.UNAUTHORIZED, "이메일 또는 비밀번호가 올바르지 않습니다");
+    }
+
+    String token = jwtProvider.createToken(user.getUserId(), user.getEmail(), user.getRole());
+    return TokenResponse.bearer(token, jwtProvider.getExpirySeconds());
+}</code></pre>
+<h3>알아둘 것 3가지</h3>
+<p><strong>① <code>passwordEncoder.encode()</code> — 비밀번호는 절대 그대로 저장하지 않는다</strong><br>
+BCrypt는 되돌릴 수 없는 함수다. DB가 통째로 유출돼도 원래 비밀번호를 알 수 없다.
+그래서 비교할 때도 "복호화해서 비교"가 아니라 <code>matches(입력값, 저장된해시)</code>를 쓴다.</p>
+<div class="box box-warn">
+  <p><strong>② 두 에러 메시지가 똑같은 게 실수가 아니다</strong> ★ 면접 포인트<br>
+  "없는 계정"과 "비밀번호 틀림"을 구분해 주면, 공격자가 이메일을 하나씩 넣어보며
+  <strong>어떤 이메일이 가입돼 있는지 알아낼 수 있다</strong>(계정 열거 취약점). 그래서 일부러 똑같이 응답한다.</p>
+</div>
+<p><strong>③ <code>@Transactional</code></strong><br>
+<code>signup</code>은 DB를 바꾸므로 그냥 <code>@Transactional</code>, <code>login</code>은 읽기만 하므로
+<code>readOnly = true</code>. 읽기 전용으로 표시하면 DB가 최적화를 할 수 있다.</p>
+
+<h2 id="s8">8. <code>JwtAuthenticationFilter</code> 작성하기</h2>
+<pre><code>@Override
+protected void doFilterInternal(HttpServletRequest request,
+                                HttpServletResponse response,
+                                FilterChain filterChain) throws ServletException, IOException {
+
+    String header = request.getHeader(HEADER);
+
+    if (header != null &amp;&amp; header.startsWith(PREFIX)) {
+        String token = header.substring(PREFIX.length());
+
+        if (jwtProvider.isValid(token)) {
+            Long userId = jwtProvider.getUserId(token);
+            userRepository.findById(userId).ifPresent(user -&gt; {
+                var authorities = List.of(new SimpleGrantedAuthority(user.getRole().name()));
+                var auth = new UsernamePasswordAuthenticationToken(user, null, authorities);
+                SecurityContextHolder.getContext().setAuthentication(auth);
+            });
+        }
+    }
+
+    filterChain.doFilter(request, response);
+}</code></pre>
+<h3>구조가 왜 이런가</h3>
+<p><strong>"통과시키는 게 기본, 인증은 덤"</strong><br>
+<code>if</code>문이 겹겹인데, 어느 조건이든 실패하면 <strong>아무것도 하지 않고 그냥 흘려보낸다.</strong>
+여기서 예외를 던지면 안 된다 — 로그인 요청이나 헬스체크처럼 <strong>토큰이 없는 게 정상인 요청</strong>도
+이 필터를 지나가기 때문이다. "권한 없으면 막는" 일은 이 필터가 아니라 <strong>Spring Security가 뒤에서</strong> 한다.
+이 필터의 책임은 딱 하나: <strong>"토큰이 있고 유효하면, 누구인지 알려준다."</strong></p>
+<p><strong><code>SecurityContextHolder</code></strong> — 이번 요청 동안 "지금 누가 접속했는지"를 담아두는 보관함이다.
+여기에 넣어두면 컨트롤러의 <code>@AuthenticationPrincipal User user</code>가 꺼내 쓴다.</p>
+<div class="box box-warn">
+  <p><strong><code>filterChain.doFilter(...)</code>가 마지막에 있는 이유</strong> —
+  필터는 사슬처럼 줄줄이 연결돼 있고, 이 호출이 "다음 사람에게 넘김"이다.
+  빠뜨리면 요청이 여기서 멈춰 응답이 영영 안 온다.</p>
+</div>
+
+<h2 id="s9">9. 최종 검증 — Swagger에서</h2>
+<p>앱 실행 후 <code>http://localhost:8080/swagger-ui/index.html</code></p>
+<div class="table-wrap">
+<table>
+  <thead><tr><th>#</th><th>동작</th><th>기대</th></tr></thead>
+  <tbody>
+    <tr><td>1</td><td><code>POST /api/auth/signup</code></td><td><strong>201</strong></td></tr>
+    <tr><td>2</td><td>같은 이메일로 또 signup</td><td><strong>409</strong></td></tr>
+    <tr><td>3</td><td><code>POST /api/auth/login</code> 올바른 정보</td><td><strong>200</strong> + accessToken</td></tr>
+    <tr><td>4</td><td>틀린 비밀번호로 login</td><td><strong>401</strong></td></tr>
+    <tr><td>5</td><td>우측 상단 <strong>Authorize</strong> → 토큰 붙여넣기</td><td>—</td></tr>
+    <tr><td>6</td><td><code>GET /api/me/history</code></td><td><strong>200</strong> (빈 배열)</td></tr>
+    <tr><td>7</td><td><code>POST /api/admin/etl/run</code></td><td><strong>403</strong> (일반 유저는 관리자 아님)</td></tr>
+  </tbody>
+</table>
+</div>
+<div class="box box-ok"><p>7번까지 통과하면 <strong>공고 자격요건 6(HTTP·인증/인가) 달성.</strong>
+실제로 2026-07-31에 전부 통과했고, 변조 토큰 차단까지 추가 확인했다.</p></div>
+<blockquote>
+  <p>6번이 403이면 → 필터가 인증 정보를 못 심은 것. Authorize에 토큰을 제대로 넣었는지, <code>isValid</code>가 true인지 확인.<br>
+  7번이 200이면 → 인가 설정이 잘못된 것. 일반 유저는 관리자 API를 못 써야 정상이다.</p>
+</blockquote>
+
+<h2 id="s10">10. 면접 대비 — 이 코드에서 나올 질문 4개</h2>
+<ol>
+  <li><strong>"JWT를 왜 쓰셨나요?"</strong><br>
+  → 서버가 세션을 들고 있지 않아도 되어(무상태), 서버를 늘릴 때 세션 공유 문제가 없습니다.
+  다만 토큰을 서버가 강제로 무효화하기 어렵다는 단점이 있어, 만료를 1시간으로 짧게 잡았습니다.</li>
+  <li><strong>"토큰에 어떤 정보를 담으셨나요?"</strong><br>
+  → userId·email·role만 담았습니다. payload는 암호화가 아니라 인코딩이라 누구나 열어볼 수 있어서,
+  민감한 정보는 넣지 않았습니다.</li>
+  <li><strong>"로그인 실패 메시지가 왜 똑같나요?"</strong><br>
+  → 구분하면 가입된 이메일을 알아낼 수 있어서(계정 열거) 의도적으로 통일했습니다.</li>
+  <li><strong>"Refresh Token은 왜 없나요?"</strong><br>
+  → 기간 제약에서 우선순위를 판단해 제외했습니다. Access Token만 쓰면 만료 시 재로그인해야 하는
+  불편이 있다는 점은 한계로 인지하고 있습니다.</li>
+</ol>
+
+<hr>
+<p class="subtitle">
+  관련: <a href="troubleshooting/2026-07-31-spring-env-not-loaded.html">트러블슈팅 2호 — .env 미로드(HTML)</a> ·
+  <a href="plans/day1-0731-인증.md">day1 계획서</a> ·
+  <a href="ETL-구현-가이드.html">ETL 구현 가이드(HTML)</a><br>
+  SceneLog · 콘텐츠 반응 타임라인 분석 백엔드 · day1 학습 자료
+</p>
+
+</main>
+</body>
+</html>
