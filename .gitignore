@@ -29,3 +29,9 @@ __pycache__/
 *.pyc
 .ipynb_checkpoints/
 .venv/
+
+# Terraform — 상태 파일에 리소스 상세(IP 등)가 들어가므로 커밋 금지
+infra/.terraform/
+infra/*.tfstate
+infra/*.tfstate.backup
+infra/*.tfvars
