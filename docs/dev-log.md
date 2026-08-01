@@ -49,3 +49,15 @@
 - **트러블슈팅 5호**: 캐시 저장은 되는데 히트만 500 — record는 final이라 GenericJackson2JsonRedisSerializer(NON_FINAL 정책)가 타입 메타데이터를 안 심는다. 타입 명시 Jackson2JsonRedisSerializer로 교체. **교훈: 캐시는 미스·히트·무효화 세 경로를 다 검증해야 한다.**
 - **Redis 프리픽스 숙제 해결**: REDIS_HOST=bogus 부정 테스트 → health 503 DOWN = `spring.data.redis.*` Boot 4 정상 바인딩 (Mongo와 달리 이동 안 함).
 - **다음**: day5(대량 시드 + 인덱스 실측 — §11 성과 1번) 또는 EDA 그래프. 여전히 이틀 선행.
+
+### day5(대량 시드 + 인덱스 실측)도 당일 진행 (8/1 오후) — §11 정량 성과 3/3 완성
+
+- **SeedRunner 구현**: TDD 3개 green(각본 baseline 역산·seed- 프리픽스 변환·피크 유지) → `@Profile("seed")` + ApplicationRunner. 콘텐츠 2~51 × 세션 200(PostgreSQL 실제 생성 — §5.4 고아 금지 유지) × 세션당 ~120건, `bulkOps(UNORDERED)` 5천 건 배치. 이벤트 있는 콘텐츠는 통째로 건너뛰어 멱등(세션 증식도 방지).
+- **시드 실측**: **1,203,759건 / 129초** (총 1,205,642건, 세션 10,000행). REST 시연 모드로는 수 시간 걸릴 규모.
+- **★ 인덱스 실측 (§11 성과 1번)**: explain — COLLSCAN `totalDocsExamined 1,205,642 → nReturned 239`, 7,041ms → IXSCAN **239건만 스캔, 202ms (스캔량 1/5,044, ~35배)**. 집계 API 20회 — p50 6,222→**2,129ms**, p95 9,280→**2,367ms** (~3~4배).
+- **정직한 분석**: API가 explain만큼 안 빨라진 이유 — 집계는 대상 콘텐츠 23,325건을 어차피 fetch·계산·저장한다. 인덱스는 "무관한 118만 건 스캔"만 없앤다. 더 줄이려면 증분 집계(README 한계 절). 반대편: segment_stats(1,690행)는 Seq Scan이 0.468ms — **마트는 인덱스가 필요 없을 만큼 작다는 것 자체가 fact/mart 분리의 가치.**
+- **계획 조정 2건**: ① "인덱스 드랍 후 시드" 순서는 시드 앱 기동 시 MongoIndexConfig가 인덱스를 되살려 실효 없음 → 시드는 인덱스 있는 채로, 드랍은 서빙 앱 뜬 뒤에. ② 타임라인 API는 Mongo를 안 타므로(PG+Redis) 측정 대상을 집계 API로 교체.
+- **장애 주입 (우대 2)**: `docker stop scenelog-mongo` → 드라이버 감지(code 11600) → 30초 serverSelectionTimeout 대기 → `MongoTimeoutException`→500. `docker start` 후 **앱 재시작 없이 자동 재연결.** 교훈: 사용자는 에러보다 30초 무응답을 먼저 겪는다 — 빠른 실패엔 serverSelectionTimeoutMS 조정.
+- **트러블슈팅 6호**: `troubleshooting/2026-08-01-mongo-collscan-index.md` (COLLSCAN→IXSCAN 실측 + 왼쪽 접두사 + 장애 주입).
+- **테스트**: 34개 전부 green (기존 31 + SeedRunner 3).
+- **다음**: day6(EC2 배포 — 자격요건 3) 준비. README에 벌크 적재 트레이드오프 문구 반영은 day7 README 작업에 포함.
