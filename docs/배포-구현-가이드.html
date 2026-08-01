@@ -1,0 +1,399 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>EC2 배포 구현 가이드 (신입용) — SceneLog</title>
+<style>
+  :root {
+    --bg: #ffffff; --fg: #1f2328; --muted: #656d76; --border: #d8dee4;
+    --code-bg: #f6f8fa; --accent: #0969da;
+    --warn-bg: #fff8c5; --warn-border: #d4a72c;
+    --ok-bg: #dafbe1; --ok-border: #2da44e;
+    --bad-bg: #ffebe9; --bad-border: #cf222e;
+    --tip-bg: #ddf4ff; --tip-border: #54aeff;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #0d1117; --fg: #e6edf3; --muted: #9198a1; --border: #30363d;
+      --code-bg: #161b22; --accent: #4493f8;
+      --warn-bg: #2d2412; --warn-border: #9e6a03;
+      --ok-bg: #0f2d18; --ok-border: #238636;
+      --bad-bg: #2d1315; --bad-border: #da3633;
+      --tip-bg: #0d2538; --tip-border: #316dca;
+    }
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; padding: 2.5rem 1.25rem 6rem; background: var(--bg); color: var(--fg);
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "Malgun Gothic",
+                 "Apple SD Gothic Neo", "Noto Sans KR", Roboto, sans-serif;
+    line-height: 1.75; font-size: 16px; word-break: keep-all; overflow-wrap: break-word;
+  }
+  main { max-width: 860px; margin: 0 auto; }
+  h1 { font-size: 1.85rem; line-height: 1.35; margin: 0 0 .5rem; padding-bottom: .6rem; border-bottom: 2px solid var(--border); }
+  h2 { font-size: 1.35rem; margin: 3rem 0 1rem; padding-bottom: .4rem; border-bottom: 1px solid var(--border); }
+  h3 { font-size: 1.08rem; margin: 2rem 0 .6rem; }
+  .subtitle { color: var(--muted); font-size: .9rem; margin: 0 0 2rem; }
+  .subtitle a { color: var(--accent); }
+  p, li { margin: .6rem 0; }
+  ul, ol { padding-left: 1.4rem; }
+  a { color: var(--accent); }
+  code {
+    background: var(--code-bg); padding: .15em .4em; border-radius: 5px;
+    font-family: "Cascadia Code", Consolas, "D2Coding", "SF Mono", Menlo, monospace; font-size: .875em;
+  }
+  pre { background: var(--code-bg); border: 1px solid var(--border); border-radius: 8px; padding: 1rem; overflow-x: auto; line-height: 1.55; }
+  pre code { background: none; padding: 0; font-size: .845rem; }
+  .table-wrap { overflow-x: auto; margin: 1rem 0; }
+  table { border-collapse: collapse; width: 100%; font-size: .93rem; }
+  th, td { border: 1px solid var(--border); padding: .55rem .75rem; text-align: left; vertical-align: top; }
+  th { background: var(--code-bg); font-weight: 600; }
+  blockquote { margin: 1.2rem 0; padding: .1rem 1rem; border-left: 4px solid var(--border); color: var(--muted); }
+  .box { border-radius: 8px; padding: .9rem 1.1rem; margin: 1.2rem 0; border-left: 4px solid; }
+  .box p:first-child { margin-top: 0; } .box p:last-child { margin-bottom: 0; }
+  .box-tip  { background: var(--tip-bg);  border-left-color: var(--tip-border); }
+  .box-warn { background: var(--warn-bg); border-left-color: var(--warn-border); }
+  .box-ok   { background: var(--ok-bg);   border-left-color: var(--ok-border); }
+  .box-bad  { background: var(--bad-bg);  border-left-color: var(--bad-border); }
+  .toc { background: var(--code-bg); border: 1px solid var(--border); border-radius: 8px; padding: 1rem 1.4rem; margin: 2rem 0; }
+  .toc strong { display: block; margin-bottom: .4rem; }
+  .toc ol { margin: 0; } .toc li { margin: .25rem 0; }
+  .lead { font-size: 1.02rem; background: var(--code-bg); border-left: 4px solid var(--accent); padding: 1rem 1.2rem; border-radius: 8px; margin: 1.5rem 0 2rem; }
+  .badge-bad, .badge-good { display: inline-block; font-size: .8rem; font-weight: 700; padding: .1rem .55rem; border-radius: 99px; margin-bottom: .3rem; }
+  .badge-bad  { background: var(--bad-bg); color: var(--bad-border); border: 1px solid var(--bad-border); }
+  .badge-good { background: var(--ok-bg); color: var(--ok-border); border: 1px solid var(--ok-border); }
+  hr { border: none; border-top: 1px solid var(--border); margin: 3rem 0; }
+</style>
+</head>
+<body>
+<main>
+
+<h1>EC2 배포 구현 가이드 (신입용)</h1>
+<p class="subtitle">
+  SceneLog day6 학습 자료 · 2026-08-01 · 실제 코드: <code>Dockerfile</code> · <code>docker-compose.yml</code> · <code>infra/main.tf</code><br>
+  같은 내용의 마크다운: <a href="배포-구현-가이드.md">배포-구현-가이드.md</a>
+</p>
+
+<div class="lead">
+  <strong>읽는 목표</strong> — "내 컴퓨터의 앱이 어떻게 전 세계가 접속하는 URL이 되는가"의
+  <strong>모든 단계</strong>를 설명할 수 있게 되는 것.
+</div>
+
+<div class="toc">
+  <strong>목차</strong>
+  <ol>
+    <li><a href="#s1">오늘 만든 것 — 한 장 그림</a></li>
+    <li><a href="#s2">배포란 무엇인가</a></li>
+    <li><a href="#s3">컨테이너화 — 어디서나 똑같이 도는 상자 ★</a></li>
+    <li><a href="#s4">Terraform — 인프라를 클릭이 아니라 코드로 ★</a></li>
+    <li><a href="#s5">EC2 낱말 사전</a></li>
+    <li><a href="#s6">보안 — 연 문과 잠근 문</a></li>
+    <li><a href="#s7">메모리와의 싸움 — 1GB에 4개 컨테이너</a></li>
+    <li><a href="#s8">배포 검증 — 안에서 밖으로</a></li>
+    <li><a href="#s9">면접 예상 질문과 답</a></li>
+    <li><a href="#s10">스스로 확인하기</a></li>
+  </ol>
+</div>
+
+<h2 id="s1">1. 오늘 만든 것 — 한 장 그림</h2>
+<pre><code>[내 PC]                         [GitHub]                [AWS 서울 리전]
+Dockerfile 작성                                          ┌─ EC2 t3.micro (RAM 1GB) ──────┐
+compose에 app 추가   ──push──▶  저장소  ──clone/pull──▶  │  docker compose --profile app  │
+terraform apply ─────────────── AWS API ──────────────▶ │  ┌──────┐ ┌────┐ ┌─────┐ ┌───┐│
+                                                        │  │ app  │ │ pg │ │mongo│ │red││
+                                                        │  │ :8080│ │    │ │     │ │is ││
+[평가자 브라우저]                                        │  └──────┘ └────┘ └─────┘ └───┘│
+http://13.124.60.61:8080  ◀── Elastic IP ◀── 보안그룹 ──┴────────────────────────────────┘
+                              (고정 번호)    (8080만 통과)</code></pre>
+<div class="table-wrap">
+<table>
+  <thead><tr><th>항목</th><th>값</th></tr></thead>
+  <tbody>
+    <tr><td><strong>접속 URL</strong></td><td>http://13.124.60.61:8080 (health UP · Swagger 200 — 외부에서 확인)</td></tr>
+    <tr><td>시연 데이터</td><td>ETL 193건 적재·5건 격리 → 시뮬 1,646건 → 집계 698버킷 → <strong>검출 2/2</strong></td></tr>
+    <tr><td>OOM</td><td><strong>0회</strong> (dmesg 기록 없음 — 4겹 선제 대응, §7)</td></tr>
+    <tr><td>인프라</td><td>Terraform 리소스 3개 (보안그룹·EC2·Elastic IP) — 전부 코드로 재현 가능</td></tr>
+  </tbody>
+</table>
+</div>
+
+<h2 id="s2">2. 배포란 무엇인가 — "제 컴퓨터에서는 돌아요"를 끝내는 일</h2>
+<p>지금까지 앱은 <strong>내 컴퓨터에서만</strong> 살아 있었다. 내가 꺼지면 앱도 꺼지고,
+다른 사람은 접속할 방법이 없다. 요리 비유로: 레시피(코드)와 시식 평가(측정 숫자)는 있는데
+<strong>식당이 없어서</strong> 아무도 와서 먹어볼 수 없는 상태.</p>
+<p>배포(deploy)는 식당 문을 여는 일이다. 구체적으로는:</p>
+<ol>
+  <li><strong>항상 켜져 있는 컴퓨터</strong>를 빌린다 → EC2</li>
+  <li>거기서 <strong>내 앱을 돌린다</strong> → Docker 컨테이너</li>
+  <li><strong>인터넷의 누구나 찾아올 수 있는 주소</strong>를 단다 → 공인 IP (+ 고정시키려면 Elastic IP)</li>
+  <li><strong>들어올 문과 잠글 문</strong>을 정한다 → 보안그룹</li>
+</ol>
+<div class="box box-tip"><p>이 네 가지가 오늘 한 일의 전부다. 나머지는 전부 이 넷을
+안전하고 재현 가능하게 만드는 장치다.</p></div>
+
+<h2 id="s3">3. 컨테이너화 — 앱을 "어디서나 똑같이 도는 상자"에 담기</h2>
+
+<h3>왜 EC2에서 <code>gradlew bootRun</code>을 안 하나?</h3>
+<p>로컬에서는 IDE가 Java 17, 환경변수, 포트를 다 챙겨줬다. EC2는 맨몸의 리눅스다 —
+Java 설치, 버전 맞추기, 서비스 등록을 손으로 하면 "내 PC와 서버가 미묘하게 다른" 문제가
+평생 따라다닌다. 컨테이너는 <strong>앱과 실행 환경(JRE까지)을 통째로 상자에 담아</strong> 이 문제를 없앤다.
+이삿짐 비유: 가구를 낱개로 옮기면(수동 설치) 뭔가 빠지지만, 컨테이너째 옮기면 그대로다.</p>
+
+<h3>Dockerfile 멀티스테이지 — 주방과 도시락</h3>
+<div class="box box-bad">
+  <span class="badge-bad">😰 나쁜 예 — 한 단계로 다 넣기</span>
+  <pre><code>FROM eclipse-temurin:17-jdk      # JDK + gradle + 소스 + 빌드 부산물 전부 포함
+COPY . .
+RUN ./gradlew bootJar
+CMD java -jar build/libs/app.jar # 이미지 ≈ 1GB. 소스코드도 들어 있다</code></pre>
+</div>
+<div class="box box-ok">
+  <span class="badge-good">✅ 우리 구조 — 빌드 주방과 배달 도시락을 분리 (실제 Dockerfile)</span>
+  <pre><code># ── 1단계: 빌드 (주방 — JDK, gradle, 소스가 다 있다)
+FROM eclipse-temurin:17-jdk AS build
+COPY src ./src
+RUN ./gradlew bootJar -x test --no-daemon
+
+# ── 2단계: 실행 (도시락 — 완성된 jar와 JRE만)
+FROM eclipse-temurin:17-jre-alpine
+COPY --from=build /app/build/libs/*.jar app.jar   # 주방에서 jar만 꺼내온다
+ENTRYPOINT ["java", "-jar", "app.jar"]</code></pre>
+</div>
+<p>2단계 이미지에는 gradle도 소스도 JDK도 없다 — <strong>작고(≈200MB), 공격 표면이 좁다.</strong>
+<code>-x test</code>는 테스트 제외: 테스트는 DB가 필요해서 이미지 빌드 중에는 돌 수 없다 (로컬·CI 몫).</p>
+<p>디테일 두 개:</p>
+<ul>
+  <li><code>sed -i 's/\r$//' gradlew</code> — Windows에서 만든 파일의 CRLF 줄바꿈이 리눅스 sh를 깨뜨린다. 항상 정규화.</li>
+  <li><code>.dockerignore</code> — build/·.git·docs를 빌드 컨텍스트에서 제외. 이미지에 불필요한 것이 새어들지 않는다.</li>
+</ul>
+
+<h3>compose profile — 한 파일, 두 용도</h3>
+<p><span class="badge-bad">😰 나쁜 예</span> <code>docker-compose.yml</code>(로컬용)과
+<code>docker-compose.prod.yml</code>(배포용) 두 벌 관리 — 반드시 어긋난다.
+<span class="badge-good">✅ 우리 구조</span> 한 파일에 profile로 스위치를 단다:</p>
+<pre><code>services:
+  app:
+    profiles: ["app"]     # ← 이 한 줄이 스위치</code></pre>
+<pre><code>docker compose up -d                       # DB 3개만 (로컬 개발 — 앱은 IDE로)
+docker compose --profile app up -d --build # 앱 포함 4개 (EC2 배포)</code></pre>
+<div class="box box-tip"><p>로컬 개발 흐름은 그대로 두고, 배포 때만 app이 켜진다.
+<strong>배포와 로컬이 같은 파일을 쓰므로 "로컬에선 됐는데 배포 구성이 달라서" 류의 버그가
+원천 차단</strong>된다.</p></div>
+
+<h3>localhost의 함정 — 컨테이너 안에서 localhost는 자기 자신이다</h3>
+<pre><code>    environment:
+      POSTGRES_HOST: postgres   # ✅ 서비스명 — compose가 만들어주는 내부 DNS
+      # POSTGRES_HOST: localhost ❌ 앱 컨테이너 자신 → DB 없음 → 접속 실패</code></pre>
+<p>아파트 비유: 로컬에서는 앱과 DB가 <strong>한 집</strong>에 살아서 "우리 집(localhost)"이 통했다.
+컨테이너는 <strong>각자 다른 호(戶)</strong>다 — 옆집을 부르려면 호수(서비스명)를 불러야 한다.
+day1에 <code>${POSTGRES_HOST:localhost}</code>로 설계해 둔 덕에 코드 수정 없이 환경변수만 바꿔 끼웠다.</p>
+
+<h2 id="s4">4. Terraform — 인프라를 클릭이 아니라 코드로</h2>
+
+<h3>나쁜 예 vs 우리 구조</h3>
+<div class="box box-bad">
+  <span class="badge-bad">😰 콘솔 클릭 40번</span>
+  <p>EC2 콘솔 로그인 → 인스턴스 시작 → AMI 고르고 → 타입 고르고 → 보안그룹 만들고 →
+  규칙 넣고… 다 만들고 나면 <strong>무엇을 어떻게 만들었는지 기록이 없다.</strong>
+  실수로 지우면? 처음부터 다시 클릭. 면접에서 "어떻게 구성했어요?" → "어… 클릭해서…"</p>
+</div>
+<div class="box box-ok">
+  <span class="badge-good">✅ 코드 (실제 infra/main.tf)</span>
+  <pre><code>resource "aws_instance" "scenelog" {
+  ami           = data.aws_ssm_parameter.al2023.value  # 항상 최신 AL2023
+  instance_type = "t3.micro"                           # RAM 1GB
+  key_name      = var.key_name
+  vpc_security_group_ids = [aws_security_group.scenelog.id]
+}</code></pre>
+</div>
+<p>인프라 전체가 118줄 파일 하나다. 지워져도 <code>terraform apply</code> 한 번이면
+<strong>동일하게 재생성</strong>되고, 저장소에 커밋되어 <strong>"이렇게 구성했습니다"의 증거</strong>가 된다.
+이것이 IaC(Infrastructure as Code)다.</p>
+
+<h3>plan → apply 2단계 — 미리보기 없이 실행하지 않는다</h3>
+<pre><code>terraform plan   →  "생성 2개, 변경 0, 삭제 0"   ← 무슨 일이 일어날지 미리 보여준다
+terraform apply  →  실제 실행 (13초 만에 인스턴스 생성)</code></pre>
+<p>DB의 트랜잭션 미리보기 같은 것. 특히 <strong>삭제가 0인지</strong>를 plan에서 확인하는 습관이
+사고를 막는다. 상태 파일(<code>terraform.tfstate</code>)은 "현재 AWS에 뭐가 있는지"의 장부 —
+IP 등 상세가 담기므로 <strong>커밋 금지</strong>(.gitignore).</p>
+
+<h3>user_data — 서버의 "입주 전 청소 목록"</h3>
+<p>인스턴스가 <strong>처음 켜질 때 한 번</strong> 실행되는 스크립트. 우리는 여기에 부팅 준비를 전부 자동화했다:</p>
+<pre><code># infra/main.tf의 user_data (요약)
+dd if=/dev/zero of=/swapfile bs=1M count=2048 && swapon /swapfile  # ① swap 2GB
+dnf install -y docker git && systemctl enable --now docker         # ② Docker
+curl -SL .../docker-compose-linux-x86_64 -o .../docker-compose     # ③ compose 플러그인
+git clone https://github.com/aucu2005/scenelog.git                 # ④ 저장소</code></pre>
+<div class="box box-warn"><p>SSH로 들어가서 명령을 타이핑하는 것과 결과는 같지만,
+<strong>사람이 개입할 틈이 없어 빠뜨릴 수도 없다.</strong> 단, 여기에 <strong>시크릿은 절대 넣지
+않는다</strong> — user_data는 콘솔에서 평문으로 조회된다 (§6).</p></div>
+
+<h2 id="s5">5. EC2 낱말 사전 — 오늘 나온 이름들</h2>
+<div class="table-wrap">
+<table>
+  <thead><tr><th>용어</th><th>비유</th><th>우리 값</th></tr></thead>
+  <tbody>
+    <tr><td><strong>EC2 인스턴스</strong></td><td>시간 단위로 빌리는 컴퓨터</td><td>t3.micro (vCPU 2 · RAM 1GB)</td></tr>
+    <tr><td><strong>AMI</strong></td><td>OS 설치 USB — 어떤 리눅스로 시작할지</td><td>Amazon Linux 2023 (SSM 파라미터로 최신 자동 선택)</td></tr>
+    <tr><td><strong>키페어</strong></td><td>현관 열쇠 — 공개키는 서버에, 개인키(.pem)는 내 PC에</td><td>devmatch-key 재사용</td></tr>
+    <tr><td><strong>보안그룹</strong></td><td>공동현관 경비 — 어느 문으로 누가 들어올 수 있나</td><td>8080 전체 공개 · 22 내 IP만 · <strong>나머지 전부 봉인</strong></td></tr>
+    <tr><td><strong>공인 IP</strong></td><td>임대 전화번호 — 껐다 켜면 다른 번호</td><td>(처음 54.180.30.61이었다)</td></tr>
+    <tr><td><strong>Elastic IP</strong></td><td><strong>내가 소유한</strong> 전화번호 — 기기를 바꿔도 유지</td><td><strong>13.124.60.61</strong> (고정)</td></tr>
+  </tbody>
+</table>
+</div>
+
+<h3>SSH — 열쇠로 원격 터미널 열기</h3>
+<pre><code>ssh -i ~/.ssh/devmatch-key.pem ec2-user@13.124.60.61</code></pre>
+<p>비밀번호가 아니라 <strong>개인키 파일</strong>로 인증한다. 서버에는 짝이 되는 공개키만 있어서,
+서버가 털려도 내 개인키는 유출되지 않는다. 개인키 파일은 절대 커밋·전송하지 않는다.</p>
+
+<h3>Elastic IP를 붙인 이유 (배포 다음 날 결정)</h3>
+<p>기본 공인 IP는 인스턴스를 <strong>중지(stop)하면 반납</strong>된다 — 다시 켜면 새 번호.
+서류에 URL을 적는 순간 그 주소는 몇 주간 불변이어야 하므로, 계정 소유의 고정 IP로 바꿨다:</p>
+<pre><code>resource "aws_eip" "scenelog" {
+  instance = aws_instance.scenelog.id   # 이 인스턴스에 고정 번호를 붙인다
+  domain   = "vpc"
+}</code></pre>
+<div class="box box-tip"><p>비용 구조가 재밌다: <strong>켜진 인스턴스에 붙어 있으면 추가 비용 없음</strong>,
+잡아두고 안 쓰면 시간당 $0.005 — IPv4가 고갈 자원이라 "낭비하지 말라"는 인센티브다.</p></div>
+
+<h2 id="s6">6. 보안 — 연 문과 잠근 문</h2>
+
+<h3>최소 개방 원칙</h3>
+<pre><code>8080 (앱)    → 0.0.0.0/0 (전 세계)   ← 이것이 오늘의 목적이므로 연다
+22   (SSH)   → 내 IP/32 하나만       ← 관리용. 전 세계에 열면 몇 분 안에 봇이 두드린다
+5432 / 27017 / 6379 (DB들) → 아예 안 연다  ← 규칙 자체가 없음 = 존재를 모른다</code></pre>
+<p>DB 포트를 안 여는 근거: DB는 <strong>같은 호스트의 앱 컨테이너만</strong> 쓰면 된다.
+외부에서 직접 접속할 이유가 하나도 없으므로 문을 만들지 않는 것이 최선의 방어다.
+(참고: 인터넷에 열린 MongoDB는 스캐너가 몇 시간 안에 찾아내 랜섬 노트를 남기는 게 현실이다.)</p>
+
+<h3>시크릿 3원칙 (오늘 실제로 지킨 것)</h3>
+<ol>
+  <li><strong>커밋 금지</strong> — <code>.env</code>는 .gitignore. 저장소는 public이다</li>
+  <li><strong>환경마다 다른 값</strong> — EC2의 DB 비밀번호·JWT 시크릿은 로컬과 <strong>다른 무작위 값</strong>으로
+  새로 생성 (로컬이 유출돼도 서버는 안전, 그 역도 성립)</li>
+  <li><strong>전달 경로도 가린다</strong> — user_data(콘솔 평문 노출)가 아니라 <strong>SSH 표준입력</strong>으로만
+  전달. 화면·로그 어디에도 값이 찍히지 않았다</li>
+</ol>
+
+<h2 id="s7">7. 메모리와의 싸움 — 1GB에 4개 컨테이너 넣기</h2>
+
+<h3>예산표</h3>
+<p>t3.micro의 RAM 1GB는 넉넉하지 않다. 기본값대로 올리면 JVM 혼자 600MB를 집는다:</p>
+<div class="table-wrap">
+<table>
+  <thead><tr><th>컨테이너</th><th>방치하면</th><th>우리가 정한 상한</th></tr></thead>
+  <tbody>
+    <tr><td>Spring Boot</td><td>400~600MB</td><td>힙 <code>-Xmx384m</code>, 컨테이너 <code>mem_limit 640m</code></td></tr>
+    <tr><td>MongoDB</td><td>250MB+ (RAM에 비례해 증가)</td><td>WiredTiger 캐시 0.25GB, <code>mem_limit 384m</code></td></tr>
+    <tr><td>PostgreSQL</td><td>150~250MB</td><td><code>mem_limit 256m</code></td></tr>
+    <tr><td>Redis</td><td><strong>무제한 (기본값!)</strong></td><td><code>maxmemory 64mb</code> + LRU 축출, <code>mem_limit 96m</code></td></tr>
+  </tbody>
+</table>
+</div>
+
+<h3>OOM Killer가 무서운 이유</h3>
+<div class="box box-warn">
+  <p>메모리가 바닥나면 리눅스 커널이 <strong>가장 큰 프로세스를 조용히 죽인다.</strong>
+  자바 예외도, 앱 로그도 없다 — 프로세스가 <strong>밖에서</strong> 살해되기 때문이다.
+  증거는 커널 로그에만 남는다: <code>dmesg | grep -i "killed process"</code>.</p>
+</div>
+
+<h3>4겹 선제 대응 → OOM 0회</h3>
+<pre><code>① swap 2GB       — user_data에서 부팅 시 자동 (RAM이 넘치면 디스크로 흘려보낼 완충지)
+② JVM 힙 상한     — day1 compose 설계 때부터
+③ 컨테이너별 상한  — 한 놈이 폭주해도 이웃을 못 죽인다
+④ 로컬 사전 검증   — 같은 제약의 compose로 로컬에서 미리 4개를 띄워봤다</code></pre>
+<div class="box box-ok">
+  <p>결과: 빌드·ETL·시뮬·집계 전 과정 <strong>OOM 0회</strong>. <code>dmesg</code> 빈 출력이 증거다.
+  계획서는 "거의 확실히 만난다"고 했지만 — <strong>장애 대응만 경험이 아니다. 예방 성공도
+  실측(free/dmesg/docker stats)으로 남기면 증거가 된다</strong> (트러블슈팅 7호).</p>
+</div>
+
+<h2 id="s8">8. 배포 검증 — 안에서 밖으로, 그리고 상태 의존성</h2>
+
+<h3>검증은 동심원 순서로</h3>
+<pre><code>① 컨테이너:  docker ps → 4개 전부 (healthy)
+② 호스트:    EC2 안에서 curl localhost:8080/actuator/health
+③ 외부:      내 PC 브라우저에서 http://13.124.60.61:8080 → UP     ← 이것만이 "배포됐다"의 증거
+④ 데이터:    ETL → 시뮬 → 집계 → 타임라인/하이라이트 응답 확인</code></pre>
+<p>①이 되고 ③이 안 되면 보안그룹 문제, ③이 되고 ④가 비면 데이터 문제 —
+<strong>원 단위로 잘라야 어디가 끊겼는지 즉시 안다.</strong></p>
+
+<h3>오늘 실제로 겪은 문제 2건 (트러블슈팅 7호)</h3>
+<div class="box box-warn">
+  <p><strong>① clone 시점과 push 시점의 어긋남</strong> — user_data가 저장소를 clone한 시점은
+  Dockerfile을 <strong>push하기 전</strong>이었다. 자동화(clone)와 수동 작업(push)의 순서 의존성을
+  놓친 것. 이후 재배포 절차를 <code>git pull &&</code>로 시작하게 통일했다.</p>
+</div>
+<div class="box box-warn">
+  <p><strong>② EC2에서만 터진 signup 400</strong> — 원인은 <code>nickname</code> 필드 누락.
+  로컬에서는 계정이 예전에 만들어져 있어서 이 경로를 오래 안 탔다.</p>
+</div>
+<blockquote><p><strong>"로컬에서 되던 것"에는 로컬에 쌓인 상태가 포함돼 있다.</strong>
+깨끗한 환경에 배포하는 순간 상태 의존이 전부 드러난다.
+<strong>첫 배포는 기능 테스트가 아니라 상태 의존성 테스트다.</strong></p></blockquote>
+<p>번외 — 같은 날 로컬에서도 한 건: 문서의 IP를 PowerShell로 일괄 치환했다가
+<strong>한글이 전부 깨졌다.</strong> PowerShell 5.1은 BOM 없는 UTF-8을 CP949로 오독한다.
+git으로 복원하고, ASCII 문자열 치환은 바이트 단위로 안전한 <code>sed</code>로 다시 했다.
+<strong>인코딩을 모르는 도구에 한글 파일을 맡기지 말 것.</strong></p>
+
+<h2 id="s9">9. 면접 예상 질문과 답</h2>
+
+<p><strong>Q1. "배포를 어떻게 하셨나요?"</strong></p>
+<blockquote><p>앱을 멀티스테이지 Dockerfile로 컨테이너화하고, EC2 t3.micro에 docker compose로
+올렸습니다. 인프라(보안그룹·EC2·Elastic IP)는 Terraform 코드로 정의해 재현 가능하게 했고,
+부팅 준비(swap·Docker 설치·clone)는 user_data로 자동화했습니다.</p></blockquote>
+
+<p><strong>Q2. "RAM 1GB에 컨테이너 4개면 부족하지 않나요?"</strong></p>
+<blockquote><p>부족합니다. 그래서 층마다 상한을 걸었습니다 — JVM 힙 384MB, 컨테이너별 mem_limit,
+Mongo WiredTiger 캐시 0.25GB, Redis 64MB LRU, 그리고 swap 2GB를 부팅 시 자동 생성.
+로컬에서 같은 제약으로 사전 검증까지 해서 배포 전 과정 OOM 0회였고, dmesg로 실측 확인했습니다.</p></blockquote>
+
+<p><strong>Q3. "DB 포트는 왜 안 열었나요?"</strong></p>
+<blockquote><p>DB는 같은 호스트의 앱만 사용하므로 외부에서 접속할 이유가 없습니다.
+보안그룹에 규칙 자체를 만들지 않는 것이 가장 확실한 방어라고 판단했습니다.
+관리용 SSH도 제 IP 하나로만 제한했습니다.</p></blockquote>
+
+<p><strong>Q4. "Terraform을 왜 썼나요?"</strong></p>
+<blockquote><p>콘솔 클릭은 기록이 남지 않고 재현이 안 됩니다. 코드로 정의하면 저장소가 곧
+인프라 문서가 되고, 같은 환경을 몇 번이든 다시 만들 수 있습니다.
+plan으로 변경 사항을 미리 확인하고 apply하는 2단계도 사고 예방에 유효했습니다.</p></blockquote>
+
+<p><strong>Q5. "Elastic IP는 왜 붙였나요?"</strong></p>
+<blockquote><p>기본 공인 IP는 인스턴스를 중지하면 반납되어 주소가 바뀝니다. 서류에 적는 URL은
+심사 기간 내내 불변이어야 하므로 계정 소유의 고정 IP를 붙였습니다.
+켜진 인스턴스에 연결된 동안은 추가 비용이 없다는 것도 확인했습니다.</p></blockquote>
+
+<h2 id="s10">10. 스스로 확인하기</h2>
+<ol>
+  <li>멀티스테이지 Dockerfile에서 최종 이미지에 남는 것과 버려지는 것은 각각 무엇인가?</li>
+  <li>컨테이너 안의 <code>localhost</code>가 로컬 개발 때와 다른 곳을 가리키는 이유는?</li>
+  <li>compose profile이 "설정 파일 두 벌"보다 안전한 이유는?</li>
+  <li><code>terraform plan</code>에서 반드시 확인해야 하는 숫자는 무엇인가?</li>
+  <li>user_data에 시크릿을 넣으면 안 되는 이유는? 우리는 .env를 어떻게 전달했나?</li>
+  <li>보안그룹에서 DB 포트에 대한 우리의 선택은 "닫기"가 아니라 무엇이었나? 왜 그게 더 나은가?</li>
+  <li>OOM Killer로 죽은 프로세스는 왜 앱 로그에 흔적이 없나? 증거는 어디서 찾나?</li>
+  <li>기본 공인 IP와 Elastic IP의 차이를 전화번호 비유로 설명할 수 있나?</li>
+  <li>"첫 배포는 상태 의존성 테스트다"의 뜻을 오늘 사례(signup 400)로 설명할 수 있나?</li>
+</ol>
+
+<hr>
+
+<p><strong>관련 문서</strong></p>
+<ul>
+  <li><a href="troubleshooting/2026-08-01-ec2-deploy-oom-prevention.md">트러블슈팅 7호 — OOM 예방 성공 + 배포 사고 2건</a></li>
+  <li><a href="plans/day6-0805-배포.md">day6 계획서</a> · <a href="../infra/main.tf">infra/main.tf</a> ·
+      <a href="../Dockerfile">Dockerfile</a> · <a href="../docker-compose.yml">docker-compose.yml</a></li>
+  <li><a href="시드인덱스-구현-가이드.md">시드인덱스 가이드</a> (day5) ·
+      <a href="집계검출캐시-구현-가이드.md">집계검출캐시 가이드</a> (day4) ·
+      <a href="반응수집-구현-가이드.md">반응수집 가이드</a> (day3) ·
+      <a href="ETL-구현-가이드.md">ETL 가이드</a> (day2) ·
+      <a href="JWT-구현-가이드.md">JWT 가이드</a> (day1)</li>
+</ul>
+
+</main>
+</body>
+</html>

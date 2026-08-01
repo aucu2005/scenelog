@@ -105,14 +105,23 @@ resource "aws_instance" "scenelog" {
   tags = { Name = "scenelog" }
 }
 
+# 고정 공인 IP (Elastic IP) — stop/start를 해도 주소가 유지된다.
+# 기본 공인 IP는 중지 시 반납되는 "임대 번호"라 URL이 매번 바뀐다 —
+# 서류에 적을 URL은 계정이 소유하는 고정 번호여야 한다.
+resource "aws_eip" "scenelog" {
+  instance = aws_instance.scenelog.id
+  domain   = "vpc"
+  tags     = { Name = "scenelog-eip" }
+}
+
 output "public_ip" {
-  value = aws_instance.scenelog.public_ip
+  value = aws_eip.scenelog.public_ip
 }
 
 output "swagger_url" {
-  value = "http://${aws_instance.scenelog.public_ip}:8080/swagger-ui/index.html"
+  value = "http://${aws_eip.scenelog.public_ip}:8080/swagger-ui/index.html"
 }
 
 output "ssh_command" {
-  value = "ssh -i ~/.ssh/devmatch-key.pem ec2-user@${aws_instance.scenelog.public_ip}"
+  value = "ssh -i ~/.ssh/devmatch-key.pem ec2-user@${aws_eip.scenelog.public_ip}"
 }

@@ -9,10 +9,10 @@
 
 | | URL |
 |---|---|
-| **Swagger (API 문서·실행)** | http://54.180.30.61:8080/swagger-ui/index.html |
-| 헬스체크 | http://54.180.30.61:8080/actuator/health |
-| 타임라인 예시 (공개 API) | http://54.180.30.61:8080/api/contents/1/timeline |
-| 하이라이트 예시 (공개 API) | http://54.180.30.61:8080/api/contents/1/highlights |
+| **Swagger (API 문서·실행)** | http://13.124.60.61:8080/swagger-ui/index.html |
+| 헬스체크 | http://13.124.60.61:8080/actuator/health |
+| 타임라인 예시 (공개 API) | http://13.124.60.61:8080/api/contents/1/timeline |
+| 하이라이트 예시 (공개 API) | http://13.124.60.61:8080/api/contents/1/highlights |
 
 **데모 계정** (Swagger 우상단 Authorize에 로그인 응답의 accessToken 입력):
 
@@ -55,5 +55,5 @@ docker compose --profile app up -d --build
 
 - [개발 일지](docs/dev-log.md) — 일자별 결과·판단
 - [트러블슈팅 로그](docs/troubleshooting/) — 이슈·원인·대응 7건
-- [학습 가이드 5부작](docs/) — JWT · ETL · 반응수집 · 집계검출캐시 · 시드인덱스 (각 md+html)
+- [학습 가이드 6부작](docs/) — JWT · ETL · 반응수집 · 집계검출캐시 · 시드인덱스 · 배포 (각 md+html)
 - [단계별 계획](docs/plans/README.md)
