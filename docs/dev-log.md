@@ -61,3 +61,14 @@
 - **트러블슈팅 6호**: `troubleshooting/2026-08-01-mongo-collscan-index.md` (COLLSCAN→IXSCAN 실측 + 왼쪽 접두사 + 장애 주입).
 - **테스트**: 34개 전부 green (기존 31 + SeedRunner 3).
 - **다음**: day6(EC2 배포 — 자격요건 3) 준비. README에 벌크 적재 트레이드오프 문구 반영은 day7 README 작업에 포함.
+
+### day6(EC2 배포)도 당일 진행 (8/1 저녁) — 자격요건 3 확보, URL 가동
+
+- **★ 배포 완료**: http://54.180.30.61:8080 — health UP·Swagger 200 외부 접속 확인. t3.micro(서울), Terraform 2리소스(보안그룹+EC2), Budget Alert $5 설정.
+- **컨테이너화**: Dockerfile 멀티스테이지(JDK 빌드→JRE alpine) + compose **profile 분리**(`up -d`=DB만, `--profile app`=전체 — 로컬 개발 흐름 유지). 로컬에서 4컨테이너 healthy 검증 후 배포.
+- **Terraform 판단**: 사용자 요청으로 CLI 대신 IaC — 보안그룹(8080만 공개, 22는 내IP/32, DB포트 미개방) + user_data(swap 2GB·Docker·compose 플러그인·clone 자동화). 인프라가 코드 증거로 남음.
+- **OOM 0회**: 계획서가 "거의 확실"이라던 OOM을 4겹 선제 대응(swap 자동화·힙 384m·mem_limit·로컬 사전 검증)으로 회피 — dmesg 빈 출력 + free/docker stats 실측 기록 (7호).
+- **겪은 문제 2건**: ① user_data clone이 Dockerfile push보다 먼저 — 빌드 직후 발견, push→pull로 해결. ② EC2 첫 signup 400 — nickname 누락. 로컬은 기존 계정 덕에 안 탔던 경로. "첫 배포는 상태 의존성 테스트다" (7호).
+- **시연 데이터**: EC2에서 ETL 재실행(200건 수집→193 적재·**5건 격리** — 로컬 4건과 다름, TMDB 목록이 날마다 달라서) → 시뮬레이션 1,646건 → 집계 698버킷 → **검출 2/2 (EC2에서도 100%)**.
+- **README 최소 버전 신규**: URL·데모 계정·숫자 3개·벌크 시드 트레이드오프 문구. day7에 비개발자용 3문단으로 확장.
+- **다음**: day7 — README 완성·EDA/대시보드(반나절 손절)·ottProject-aws 검토·서류. 인스턴스는 심사 기간 계속 가동.
