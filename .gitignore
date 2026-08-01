@@ -36,3 +36,4 @@ infra/*.tfstate
 infra/*.tfstate.backup
 infra/*.tfvars
 infra/tfplan
+docs/HANDOFF.md
