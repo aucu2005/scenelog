@@ -9,6 +9,11 @@
 영화 메타데이터는 TMDB에서 자동으로 수집하며, 수집 과정에서 값이 빠졌거나 잘못된
 데이터를 걸러내고 그 결과를 기록으로 남깁니다. 공개 정보만 참고한 개인 학습 프로젝트입니다.
 
+![반응 타임라인과 검출된 하이라이트 — 배포 서버의 실제 응답으로 그린 그래프](docs/images/timeline-content1.png)
+
+*위 그래프가 이 서비스의 결과물입니다 — 반응이 몰린 두 구간(빨간 영역)을 통계가 자동으로 찾아냈습니다.
+배포 중인 서버의 API 응답으로 그렸습니다.*
+
 ---
 
 ## 🌐 데모 (EC2, 서울 리전 — 가동 중)
@@ -30,6 +35,10 @@ password: password123!   (ROLE_ADMIN — ETL·시뮬레이터·집계 실행 가
 **5분 시연 순서** (Swagger에서):
 `POST /api/auth/login` → Authorize → `POST /api/admin/simulate?contentId=2` →
 `POST /api/admin/contents/2/aggregate` → `GET /api/contents/2/timeline` · `/highlights`
+
+배포된 서버가 실데이터로 응답하는 모습 (타임라인 → 하이라이트 검출 결과):
+
+![시연 GIF — Swagger에서 타임라인·하이라이트 API 호출](docs/images/scenelog-demo.gif)
 
 ---
 
