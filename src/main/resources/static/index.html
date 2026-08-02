@@ -31,6 +31,7 @@
   #chartHost svg{display:block;width:100%;height:auto}
   #tooltip{position:absolute;display:none;pointer-events:none;background:var(--t1);color:#fff;
        font-size:12px;border-radius:8px;padding:8px 10px;white-space:nowrap;transform:translate(-50%,-110%)}
+  #xhair{position:absolute;display:none;pointer-events:none;top:0;bottom:0;width:1px;background:rgba(9,9,11,.25)}
   #axisRow{display:flex;justify-content:space-between;font-size:11px;color:var(--t2);margin-top:6px}
   table{width:100%;border-collapse:collapse;font-size:13px}
   thead th{background:#F4F4F5;color:var(--t2);font-size:12px;text-align:left;
@@ -98,7 +99,35 @@ async function select(content){
   state.highlights=content.hl;
   render();
 }
-function render(){/* Task 3~4에서 채운다 */}
+function renderChart(){
+  const T=state.timeline,H=state.highlights,W=1176,Ht=260,pad=6;
+  if(!T.length){$("chartHost").innerHTML='<div id="tooltip"></div><div id="xhair"></div>';return;}
+  const maxSec=Math.max(T[T.length-1].bucketStartSec+10,H.reduce((m,h)=>Math.max(m,h.endSec),0));
+  const maxV=Math.max(...T.map(b=>b.total));
+  const x=s=>s/maxSec*W, y=v=>Ht-pad-(v/maxV)*(Ht-40);
+  const byBucket=new Map(T.map(b=>[b.bucketStartSec,b]));
+  let pts=[];
+  for(let s=0;s<maxSec;s+=10){const b=byBucket.get(s);pts.push(`${x(s).toFixed(1)},${y(b?b.total:0).toFixed(1)}`);}
+  const bands=H.map(h=>`<rect x="${x(h.startSec).toFixed(1)}" y="0" width="${(x(h.endSec)-x(h.startSec)).toFixed(1)}" height="${Ht}" fill="var(--band)"/>`).join("");
+  const labels=H.map(h=>`<text x="${((x(h.startSec)+x(h.endSec))/2).toFixed(1)}" y="16" text-anchor="middle" font-size="11" font-weight="700" fill="var(--score)">score ${h.score.toFixed(1)}</text>`).join("");
+  $("chartHost").innerHTML=`<svg viewBox="0 0 ${W} ${Ht}" preserveAspectRatio="none">${bands}
+    <polyline points="${pts.join(" ")}" fill="none" stroke="var(--line)" stroke-width="2" vector-effect="non-scaling-stroke"/>${labels}</svg><div id="tooltip"></div><div id="xhair"></div>`;
+  const stepMin=Math.max(10,Math.ceil(maxSec/60/50)*10);
+  let ax=[];for(let m=0;m<=Math.floor(maxSec/60);m+=stepMin)ax.push(`<span>${m}분</span>`);
+  $("axisRow").innerHTML=ax.join("");
+  const host=$("chartHost");
+  host.onmousemove=ev=>{
+    const r=host.getBoundingClientRect();
+    const sec=Math.floor((ev.clientX-r.left)/r.width*maxSec/10)*10;
+    const b=byBucket.get(sec);const tip=$("tooltip");const xh=$("xhair");
+    xh.style.left=(ev.clientX-r.left)+"px";xh.style.display="block";
+    if(!b){tip.style.display="none";return;}
+    tip.innerHTML=`<b>${fmt(sec)}</b> · 총 ${b.total}건<br>웃음 ${b.laugh} · 긴장 ${b.tension} · 감동 ${b.touched} · 지루함 ${b.bored}`;
+    tip.style.left=(ev.clientX-r.left)+"px";tip.style.top=(ev.clientY-r.top)+"px";tip.style.display="block";};
+  host.onmouseleave=()=>{$("tooltip").style.display="none";$("xhair").style.display="none";};
+}
+function renderTable(){/* Task 4에서 채운다 */}
+function render(){renderChart();renderTable();}
 (async()=>{
   try{
     state.contents=await loadContents();
