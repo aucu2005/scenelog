@@ -126,7 +126,13 @@ function renderChart(){
     tip.style.left=(ev.clientX-r.left)+"px";tip.style.top=(ev.clientY-r.top)+"px";tip.style.display="block";};
   host.onmouseleave=()=>{$("tooltip").style.display="none";$("xhair").style.display="none";};
 }
-function renderTable(){/* Task 4에서 채운다 */}
+function renderTable(){
+  $("hlBody").innerHTML=state.highlights.map(h=>
+    `<tr><td>${fmt(h.startSec)} ~ ${fmt(h.endSec)}</td><td>${h.endSec-h.startSec}초</td>
+     <td>${h.score.toFixed(2)}</td><td><code>${h.method}</code></td></tr>`).join("")
+    ||'<tr><td colspan="4" style="color:var(--t2)">검출된 구간이 없습니다</td></tr>';
+  $("latencyBadge").textContent=`⚡ 타임라인 응답 ${state.ms}ms`;
+}
 function render(){renderChart();renderTable();}
 (async()=>{
   try{
