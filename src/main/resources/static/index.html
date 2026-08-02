@@ -1,0 +1,82 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>SceneLog — 반응 분석 대시보드</title>
+<style>
+  :root{--bg:#FAFAFA;--card:#FFFFFF;--border:#E4E4E7;--t1:#09090B;--t2:#71717A;
+        --line:#18181B;--band:rgba(239,68,68,.23);--score:#DC2626;
+        --green-bg:#DCFCE7;--green-fg:#166534;}
+  *{box-sizing:border-box;margin:0}
+  body{background:var(--bg);color:var(--t1);font-size:14px;line-height:1.6;
+       font-family:-apple-system,BlinkMacSystemFont,"Segoe UI","Malgun Gothic","Apple SD Gothic Neo","Noto Sans KR",sans-serif}
+  .wrap{max-width:1280px;margin:0 auto;padding:32px 24px}
+  header{display:flex;justify-content:space-between;align-items:center;gap:16px;flex-wrap:wrap;margin-bottom:24px}
+  .brand h1{font-size:20px;font-weight:700}
+  .brand p{font-size:13px;color:var(--t2)}
+  .hright{display:flex;gap:10px;align-items:center;flex-wrap:wrap}
+  select,.btn{font:inherit;font-size:13px;color:var(--t1);background:var(--card);
+       border:1px solid var(--border);border-radius:8px;padding:8px 14px;text-decoration:none;cursor:pointer}
+  .stats{display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:16px;margin-bottom:24px}
+  .card{background:var(--card);border:1px solid var(--border);border-radius:12px;
+        padding:20px;box-shadow:0 1px 2px rgba(0,0,0,.06)}
+  .stat .lb{font-size:13px;color:var(--t2)}
+  .stat .vl{font-size:26px;font-weight:700;margin:2px 0}
+  .stat .nt{font-size:12px;color:var(--t2)}
+  .cardTitle{display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap;margin-bottom:12px}
+  .cardTitle h2{font-size:15px;font-weight:700}
+  .cardTitle .sub{font-size:12px;color:var(--t2)}
+  #chartHost{position:relative}
+  #chartHost svg{display:block;width:100%;height:auto}
+  #tooltip{position:absolute;display:none;pointer-events:none;background:var(--t1);color:#fff;
+       font-size:12px;border-radius:8px;padding:8px 10px;white-space:nowrap;transform:translate(-50%,-110%)}
+  #axisRow{display:flex;justify-content:space-between;font-size:11px;color:var(--t2);margin-top:6px}
+  table{width:100%;border-collapse:collapse;font-size:13px}
+  thead th{background:#F4F4F5;color:var(--t2);font-size:12px;text-align:left;
+       padding:9px 14px}
+  thead th:first-child{border-radius:8px 0 0 8px}
+  thead th:last-child{border-radius:0 8px 8px 0}
+  tbody td{padding:12px 14px;border-bottom:1px solid #F4F4F5}
+  .badge{display:inline-flex;align-items:center;gap:6px;background:var(--green-bg);color:var(--green-fg);
+       font-size:12px;border-radius:999px;padding:5px 12px}
+  #statusBanner{display:none;background:#FEF2F2;border:1px solid #FECACA;color:#991B1B;
+       border-radius:12px;padding:14px 18px;font-size:13px;margin-bottom:24px}
+  footer{font-size:11px;color:var(--t2);margin-top:24px}
+  .gap{margin-bottom:24px}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <div class="brand"><h1>SceneLog</h1><p>콘텐츠 반응 분석 대시보드</p></div>
+    <div class="hright">
+      <select id="contentSelect" aria-label="콘텐츠 선택"><option>불러오는 중…</option></select>
+      <a class="btn" href="/swagger-ui/index.html">Swagger</a>
+      <a class="btn" href="https://github.com/aucu2005/scenelog">GitHub</a>
+    </div>
+  </header>
+  <div id="statusBanner"></div>
+  <div class="stats">
+    <div class="card stat"><div class="lb">인덱스 스캔 절감</div><div class="vl">1/5,044</div><div class="nt">1,205,642건 → 239건 (120만 건 실측)</div></div>
+    <div class="card stat"><div class="lb">하이라이트 검출</div><div class="vl">2/2 · 100%</div><div class="nt">각본에 심은 정답 피크 전부 검출</div></div>
+    <div class="card stat"><div class="lb">캐시 히트 p50</div><div class="vl">22.4ms</div><div class="nt">미스 516ms 대비 약 23배</div></div>
+  </div>
+  <div class="card gap">
+    <div class="cardTitle"><h2>반응 타임라인</h2>
+      <span class="sub">10초 버킷당 총 반응 수 · 빨간 영역 = 검출된 하이라이트</span></div>
+    <div id="chartHost"><div id="tooltip"></div></div>
+    <div id="axisRow"></div>
+  </div>
+  <div class="card">
+    <div class="cardTitle"><h2>검출된 하이라이트</h2><span class="badge" id="latencyBadge">측정 중…</span></div>
+    <table><thead><tr><th>구간 (재생 위치)</th><th>길이</th><th>score</th><th>method</th></tr></thead>
+    <tbody id="hlBody"></tbody></table>
+  </div>
+  <footer>SceneLog — 개인 학습 프로젝트 · 반응 데이터는 검출 채점용 시뮬레이터가 생성한 합성 데이터입니다 · 집계 결과는 Redis 캐시로 서빙됩니다</footer>
+</div>
+<script>
+/* Task 2~4에서 채운다 */
+</script>
+</body>
+</html>

@@ -12,7 +12,10 @@
 ## 파일과 서빙
 
 - `src/main/resources/static/index.html` **1개** (CSS·JS 전부 인라인, 외부 의존 0)
-- Spring Boot가 `static/index.html`을 루트(`/`)에 자동 서빙 — 설정 변경 불필요
+- Spring Boot가 `static/index.html`을 루트(`/`)에 자동 서빙
+- **프리즈 예외 1건 (2026-08-02 사용자 승인)**: SecurityConfig permitAll에 `"/", "/index.html"` 추가 —
+  설계 당시 "설정 변경 불필요"로 봤으나 `anyRequest().authenticated()`가 루트를 403으로 막는 것을
+  구현 중 발견. 보안 경계 변화 없음(정적 파일만 공개), 테스트 34개로 회귀 확인
 
 ## 화면 구성 (위→아래)
 

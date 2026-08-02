@@ -43,6 +43,7 @@ public class SecurityConfig {
                         session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
                 .authorizeHttpRequests(auth -> auth
                         .requestMatchers(
+                                "/", "/index.html",   // 대시보드 정적 페이지 (공개 조회 전용 — 2026-08-02)
                                 "/actuator/health",
                                 "/api/auth/**",
                                 "/swagger-ui/**", "/swagger-ui.html",
