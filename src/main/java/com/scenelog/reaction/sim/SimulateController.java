@@ -32,6 +32,11 @@ public class SimulateController {
                                         @RequestParam long contentId,
                                         @RequestParam(defaultValue = "20") int users,
                                         @RequestParam(defaultValue = "42") long seed) {
+        // 공개 데모 서버 보호: 이벤트를 전량 메모리에 생성하므로 상한 없이는 힙(384m) 고갈 벡터가 된다
+        if (users < 1 || users > 200) {
+            throw new com.scenelog.common.error.ApiException(
+                    org.springframework.http.HttpStatus.BAD_REQUEST, "users는 1~200 범위여야 합니다");
+        }
         return simulateService.simulate(caller, contentId, users, seed);
     }
 }

@@ -29,6 +29,11 @@ public class EtlAdminController {
     @PostMapping("/run")
     @Operation(summary = "ETL 실행", description = "TMDB 수집→검증→정제→적재. pages×20건 수집. 결과로 품질 리포트를 반환한다.")
     public EtlRunResponse run(@RequestParam(defaultValue = "5") int pages) {
+        // 공개 데모 서버 보호: 상한 없이는 TMDB 쿼터 소진 + 장시간 트랜잭션 점유 벡터가 된다
+        if (pages < 1 || pages > 20) {
+            throw new com.scenelog.common.error.ApiException(
+                    org.springframework.http.HttpStatus.BAD_REQUEST, "pages는 1~20 범위여야 합니다");
+        }
         return EtlRunResponse.from(etlService.run(pages));
     }
 
