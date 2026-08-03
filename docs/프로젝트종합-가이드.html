@@ -1,0 +1,356 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>SceneLog 프로젝트 종합 가이드 — 왜, 어떻게, 그래서 무엇이</title>
+<style>
+  :root {
+    --bg: #ffffff; --fg: #1f2328; --muted: #656d76; --border: #d8dee4;
+    --code-bg: #f6f8fa; --accent: #0969da;
+    --warn-bg: #fff8c5; --warn-border: #d4a72c;
+    --ok-bg: #dafbe1; --ok-border: #2da44e;
+    --bad-bg: #ffebe9; --bad-border: #cf222e;
+    --tip-bg: #ddf4ff; --tip-border: #54aeff;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #0d1117; --fg: #e6edf3; --muted: #9198a1; --border: #30363d;
+      --code-bg: #161b22; --accent: #4493f8;
+      --warn-bg: #2d2412; --warn-border: #9e6a03;
+      --ok-bg: #0f2d18; --ok-border: #238636;
+      --bad-bg: #2d1315; --bad-border: #da3633;
+      --tip-bg: #0d2538; --tip-border: #316dca;
+    }
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; padding: 2.5rem 1.25rem 6rem; background: var(--bg); color: var(--fg);
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "Malgun Gothic",
+                 "Apple SD Gothic Neo", "Noto Sans KR", Roboto, sans-serif;
+    line-height: 1.75; font-size: 16px; word-break: keep-all; overflow-wrap: break-word;
+  }
+  main { max-width: 860px; margin: 0 auto; }
+  h1 { font-size: 1.85rem; line-height: 1.35; margin: 0 0 .5rem; padding-bottom: .6rem; border-bottom: 2px solid var(--border); }
+  h2 { font-size: 1.35rem; margin: 3rem 0 1rem; padding-bottom: .4rem; border-bottom: 1px solid var(--border); }
+  h3 { font-size: 1.08rem; margin: 2rem 0 .6rem; }
+  .subtitle { color: var(--muted); font-size: .9rem; margin: 0 0 2rem; }
+  .subtitle a { color: var(--accent); }
+  p, li { margin: .6rem 0; }
+  ul, ol { padding-left: 1.4rem; }
+  a { color: var(--accent); }
+  code {
+    background: var(--code-bg); padding: .15em .4em; border-radius: 5px;
+    font-family: "Cascadia Code", Consolas, "D2Coding", "SF Mono", Menlo, monospace; font-size: .875em;
+  }
+  pre { background: var(--code-bg); border: 1px solid var(--border); border-radius: 8px; padding: 1rem; overflow-x: auto; line-height: 1.55; }
+  pre code { background: none; padding: 0; font-size: .845rem; }
+  .table-wrap { overflow-x: auto; margin: 1rem 0; }
+  table { border-collapse: collapse; width: 100%; font-size: .93rem; }
+  th, td { border: 1px solid var(--border); padding: .55rem .75rem; text-align: left; vertical-align: top; }
+  th { background: var(--code-bg); font-weight: 600; }
+  blockquote { margin: 1.2rem 0; padding: .1rem 1rem; border-left: 4px solid var(--border); color: var(--muted); }
+  .box { border-radius: 8px; padding: .9rem 1.1rem; margin: 1.2rem 0; border-left: 4px solid; }
+  .box p:first-child { margin-top: 0; } .box p:last-child { margin-bottom: 0; }
+  .box-tip  { background: var(--tip-bg);  border-left-color: var(--tip-border); }
+  .box-warn { background: var(--warn-bg); border-left-color: var(--warn-border); }
+  .box-ok   { background: var(--ok-bg);   border-left-color: var(--ok-border); }
+  .box-bad  { background: var(--bad-bg);  border-left-color: var(--bad-border); }
+  .toc { background: var(--code-bg); border: 1px solid var(--border); border-radius: 8px; padding: 1rem 1.4rem; margin: 2rem 0; }
+  .toc strong { display: block; margin-bottom: .4rem; }
+  .toc ol { margin: 0; } .toc li { margin: .25rem 0; }
+  .lead { font-size: 1.02rem; background: var(--code-bg); border-left: 4px solid var(--accent); padding: 1rem 1.2rem; border-radius: 8px; margin: 1.5rem 0 2rem; }
+  .badge-bad, .badge-good { display: inline-block; font-size: .8rem; font-weight: 700; padding: .1rem .55rem; border-radius: 99px; margin-bottom: .3rem; }
+  .badge-bad  { background: var(--bad-bg); color: var(--bad-border); border: 1px solid var(--bad-border); }
+  .badge-good { background: var(--ok-bg); color: var(--ok-border); border: 1px solid var(--ok-border); }
+  hr { border: none; border-top: 1px solid var(--border); margin: 3rem 0; }
+</style>
+</head>
+<body>
+<main>
+
+<h1>SceneLog 프로젝트 종합 가이드 — 왜, 어떻게, 그래서 무엇이</h1>
+<p class="subtitle">
+  신입용 0번째 문서 · 2026-08-03 · 부분별 상세는 6부작 가이드가, 전체 그림은 이 문서가 담당<br>
+  같은 내용의 마크다운: <a href="프로젝트종합-가이드.md">프로젝트종합-가이드.md</a>
+</p>
+
+<div class="lead">
+  <strong>읽는 목표</strong> — "이 프로젝트를 아무것도 모르는 사람에게 10분 동안 설명"할 수 있게 되는 것.
+  기술 선택의 <strong>왜</strong> → 코드 구성의 <strong>왜</strong> → 실제 동작의 <strong>어떻게</strong> 순서로 간다.
+</div>
+
+<div class="toc">
+  <strong>목차</strong>
+  <ol>
+    <li><a href="#s1">이 프로젝트가 푸는 문제 — 왜 이 주제인가</a></li>
+    <li><a href="#s2">기술 선택의 이유 — 도구마다 "왜" ★</a></li>
+    <li><a href="#s3">코드 구성의 원리 — 왜 이렇게 나눴는가 ★</a></li>
+    <li><a href="#s4">실제 동작 — 요청 다섯 개의 여행 ★</a></li>
+    <li><a href="#s5">전체를 관통하는 4가지 원칙</a></li>
+    <li><a href="#s6">숫자로 보는 프로젝트</a></li>
+    <li><a href="#s7">면접 대비 — 종합 질문 스크립트</a></li>
+    <li><a href="#s8">스스로 확인하기</a></li>
+    <li><a href="#s9">더 깊이 — 6부작 가이드</a></li>
+  </ol>
+</div>
+
+<h2 id="s1">1. 이 프로젝트가 푸는 문제 — 그리고 왜 이 주제인가</h2>
+<p><strong>문제 한 문장</strong>: 시청자가 영상의 몇 초 지점에서 어떤 감정 반응을 보였는지를 모아,
+"사람들이 가장 강하게 반응한 구간"을 통계로 자동 검출한다.</p>
+<p>왜 하필 이 주제로 백엔드 포트폴리오를 만들었나? <strong>백엔드의 전체 수명주기가 한 프로젝트에
+다 들어가기 때문이다:</strong></p>
+<pre><code>외부 데이터 수집(ETL) → 검증·정제 → 저장(3종 저장소) → 대량 쓰기 수집(반응)
+→ 배치 집계·통계 검출 → 캐시 서빙 → 배포·운영(EC2)</code></pre>
+<div class="box box-tip">
+  <p>게시판 CRUD는 "저장하고 꺼내기"만 보여주지만, 이 구조는 <strong>수집이 더럽고(외부 API),
+  쓰기가 몰리고(이벤트), 읽기가 반복되고(타임라인), 계산이 무겁다(집계)</strong> — 백엔드가
+  실무에서 싸우는 네 가지 압력을 전부 시뮬레이션한다. 그리고 각 압력마다 다른 도구를 쓴 이유가 생긴다 (§2).</p>
+</div>
+
+<h2 id="s2">2. 기술 선택의 이유 — "왜 이 도구인가"를 도구마다</h2>
+
+<h3>한눈에 보기</h3>
+<div class="table-wrap">
+<table>
+  <thead><tr><th>기술</th><th>맡은 일</th><th>한 줄 이유</th></tr></thead>
+  <tbody>
+    <tr><td>Spring Boot 4 · Java 17</td><td>애플리케이션 뼈대</td><td>채용 시장의 공용어 + 보안·데이터·캐시가 한 생태계</td></tr>
+    <tr><td>PostgreSQL</td><td>회원·콘텐츠·세션·<strong>집계 결과</strong></td><td>관계와 트랜잭션이 필요한 데이터</td></tr>
+    <tr><td>MongoDB</td><td><strong>반응 이벤트 원본</strong></td><td>형태가 진화하는 대량 쓰기 데이터</td></tr>
+    <tr><td>Redis</td><td>타임라인 <strong>캐시</strong></td><td>같은 질문에 같은 답을 반복 계산하지 않기</td></tr>
+    <tr><td>JWT</td><td>인증</td><td>서버가 기억하지 않는 무상태 인증</td></tr>
+    <tr><td>Docker Compose</td><td>실행 환경 통일</td><td>"제 컴퓨터에서는 되는데요"의 종말</td></tr>
+    <tr><td>Terraform</td><td>인프라</td><td>클릭은 기록이 없고, 코드는 재현이 된다</td></tr>
+  </tbody>
+</table>
+</div>
+
+<h3>저장소 셋을 쓰는 진짜 이유 — 데이터의 성격이 셋이기 때문</h3>
+<p><strong>은행 장부 데이터 (PostgreSQL)</strong> — 회원, 세션, 집계 결과.
+"tester가 콘텐츠 1을 시청한 세션"은 회원·콘텐츠와 <strong>관계</strong>가 있고, 집계는 delete+insert가
+<strong>한 트랜잭션</strong>으로 묶여야 중간 상태가 새어나가지 않는다. 관계와 트랜잭션 — RDB가 태어난 이유다.</p>
+<p><strong>일기장 데이터 (MongoDB)</strong> — 반응 이벤트.
+"누가 몇 초에 웃었다"는 한 건 한 건이 독립적이고, 반응 유형이 늘어나면 <strong>형태가 진화</strong>하며
+(RDB면 매번 ALTER TABLE), 시청자가 몰리면 <strong>쓰기가 폭주</strong>한다. 조인이 필요 없고 스키마가
+유연해야 하는 append-only 데이터 — 문서 DB의 자리다. 120만 건 실측도 이 컬렉션에서 했다.</p>
+<p><strong>계산 결과 메모지 (Redis)</strong> — 타임라인 응답.
+집계 결과는 자주 읽히고 가끔 바뀐다. 매 요청마다 DB를 가느니 계산된 답을 메모리에 붙여두고
+(히트 p50 22.4ms), 집계가 갱신되는 순간 메모를 찢는다(@CacheEvict). TTL 10분은 찢는 걸
+잊었을 때의 안전망이다.</p>
+<div class="box box-warn">
+  <p><strong>대가를 함께 말할 수 있어야 한다</strong>: 저장소가 셋이면 <strong>참조 정합성을 DB가
+  보장해 주지 않는다.</strong> Mongo의 이벤트가 가리키는 sessionId가 PG에 실제로 있는지는 DB가
+  모른다 — 그래서 저장 시점 애플리케이션 검증으로 막고, 이 한계를 문서에 적어 뒀다.
+  "여러 DB = 무조건 좋음"이 아니라 <strong>정합성이라는 빚을 지고 유연성을 산 것</strong>이다.</p>
+</div>
+
+<h3>JWT를 고른 이유 — 세션 방식과의 비교</h3>
+<pre><code>세션 방식: 로그인 → 서버가 세션 저장 → 매 요청마다 서버가 기억을 뒤짐
+           서버가 여러 대가 되면? 세션 공유 스토리지가 또 필요해짐
+JWT 방식:  로그인 → 서명된 신분증 발급 → 매 요청마다 서명만 검증 (서버는 아무것도 기억 안 함)
+           서버가 몇 대든 시크릿만 공유하면 됨 (무상태)</code></pre>
+<p>API 서버 + 확장 가능성이라는 이 프로젝트의 전제에서 무상태가 맞는 선택.
+대가(발급 후 강제 만료 어려움)는 만료 1시간으로 짧게 잡는 것으로 상쇄했다.</p>
+
+<h3>Docker·Terraform — "환경도 코드다"</h3>
+<ul>
+  <li>앱과 DB 3종의 버전·설정·메모리 상한이 <code>docker-compose.yml</code> 한 파일에 있다.
+  로컬과 EC2가 <strong>같은 파일</strong>로 뜨기 때문에 "로컬에선 됐는데" 류의 버그가 구조적으로 안 생긴다.</li>
+  <li>EC2·보안그룹·고정 IP는 <code>infra/main.tf</code> 118줄이다. 실수로 지워도
+  <code>terraform apply</code> 한 번이면 동일하게 재생성되고, 저장소 자체가 "인프라를 이렇게
+  구성했다"는 증거가 된다.</li>
+</ul>
+
+<h2 id="s3">3. 코드 구성의 원리 — "왜 이렇게 나눴는가"</h2>
+
+<h3>패키지: 기술이 아니라 도메인으로 나눴다</h3>
+<pre><code>com.scenelog
+├── auth       ← 회원·JWT (가입/로그인/필터)
+├── content    ← 콘텐츠·시청 세션
+├── etl        ← TMDB 수집·검증·격리
+├── reaction   ← 반응 수집 (+sim: 시뮬레이터·시드)
+├── analytics  ← 집계·검출·타임라인·캐시
+└── common     ← 전역 설정(config)·예외 처리(error)</code></pre>
+<div class="box box-bad">
+  <span class="badge-bad">😰 나쁜 예 — 기술 계층으로 나누기</span>
+  <pre><code>├── controller   ← 모든 컨트롤러 7개
+├── service      ← 모든 서비스 7개
+└── repository   ← 모든 저장소 9개</code></pre>
+  <p>"반응 수집에 검증 하나 추가"하려면 폴더 세 개를 뛰어다닌다. 파일이 40개만 돼도
+  어떤 컨트롤러가 어떤 서비스와 한 팀인지 미궁이 된다.</p>
+</div>
+<div class="box box-ok">
+  <span class="badge-good">✅ 우리 구조 — 도메인으로 나누기</span>
+  <p>반응 관련 일은 전부 <code>reaction/</code> 안에 있다. <strong>"함께 바뀌는 것은 함께
+  둔다"</strong> — 기능을 고칠 때 열어야 하는 폴더가 하나다. 도메인 간 참조는 필요한 만큼만
+  (reaction이 content의 세션을 조회하는 식).</p>
+</div>
+
+<h3>도메인 안의 3층 — 요청의 역할 분담</h3>
+<pre><code>Controller  "문지기"   — HTTP를 안다. 파라미터를 받고, DTO로 응답한다. 로직은 모른다
+Service     "일꾼"     — 비즈니스 규칙과 트랜잭션 경계. HTTP를 모른다
+Repository  "창고지기" — 저장소를 안다. SQL/쿼리만 담당한다</code></pre>
+<p>왜 나누나? <strong>각 층을 따로 교체·시험할 수 있어서다.</strong> 예컨대 집계 로직을 시험할 때
+HTTP도 DB도 필요 없게 만드는 것 — 그게 다음 항목이다.</p>
+
+<h3>순수 로직은 Spring 밖으로 — 이 프로젝트의 서명 같은 설계</h3>
+<p>핵심 계산 5개(ContentValidator·ContentTransformer·ReactionSimulator·Aggregator·HighlightDetector)는
+<strong>Spring 어노테이션이 하나도 없는 평범한 클래스</strong>다:</p>
+<pre><code>// Aggregator — @Service 없음, DB 접근 없음. 입력을 받아 출력을 낼 뿐
+public List&lt;BucketCounts&gt; aggregate(List&lt;ReactionEvent&gt; events, int bucketSizeSec) { ... }</code></pre>
+<p>이유는 테스트다. 순수 함수는 <strong>같은 입력 → 같은 출력</strong>이므로 DB 없이, 컨텍스트 없이,
+밀리초 단위로 시험할 수 있다. 실제로 테스트 34개가 전부 mock 없이 도는 이유가 이 분리다.
+시간이 필요한 검증기(미개봉작 판정)는 <code>Clock</code>을 주입받아 테스트가 시계를 고정한다.</p>
+<blockquote><p>구분 기준을 물으면: "프레임워크가 필요한 것(트랜잭션·HTTP·저장소)과 순수 계산을 나눴고,
+계산은 전부 밖으로 뺐다"가 답이다.</p></blockquote>
+
+<h3>공통부 — 반복을 한 곳으로</h3>
+<ul>
+  <li><strong>GlobalExceptionHandler</strong>: 예외 → HTTP 응답 번역기. 컨트롤러마다 try-catch를
+  흩뿌리는 대신 <code>ApiException(상태코드, 메시지)</code>을 던지면 한 곳에서 통일된
+  <code>ErrorResponse</code>로 변환된다. 부수 효과: 예기치 못한 예외의 내부 메시지가
+  클라이언트로 새지 않는 방어선.</li>
+  <li><strong>DTO와 엔티티의 분리</strong>: 엔티티(User·Content)는 DB의 모양, DTO는 API의 모양.
+  엔티티를 직접 응답하면 ① 내부 필드(passwordHash!)가 노출되고 ② DB 스키마 변경이 곧바로
+  API 파괴가 된다. 귀찮아도 나누는 이유.</li>
+  <li><strong>설정도 코드로</strong>: Mongo 인덱스는 프로퍼티가 아니라 MongoIndexConfig가 기동 시
+  보장한다 — "조용히 무시되는 설정"에 당한 뒤(트러블슈팅 3호) 내린 결정.</li>
+</ul>
+
+<h2 id="s4">4. 실제 동작 — 요청 다섯 개의 여행</h2>
+
+<h3>① 로그인과 보호된 API — JWT의 왕복</h3>
+<pre><code>[가입/로그인]
+POST /api/auth/login {email, password}
+ → AuthService: 이메일 조회 → BCrypt 비교 (틀리면 "없는 계정"과 같은 401 — 계정 열거 방지)
+ → JwtProvider: HS256 서명된 토큰 발급 (subject=userId, 만료 1h)
+
+[이후 모든 보호 요청]
+GET /api/me/history + Authorization: Bearer eyJ...
+ → JwtAuthenticationFilter (컨트롤러에 닿기 전 필터 단계!)
+    서명 검증 → userId 추출 → DB에서 User 로드 → SecurityContext에 "인증됨" 도장
+ → SecurityConfig 규칙 심사: /api/admin/** 은 ROLE_ADMIN만, 그 외 인증만
+ → 통과하면 그제야 Controller 실행</code></pre>
+<div class="box box-tip"><p>핵심 감각: <strong>인증은 컨트롤러가 아니라 필터에서 끝난다.</strong>
+컨트롤러 코드에는 인증 로직이 한 줄도 없고, <code>@AuthenticationPrincipal User</code>로
+"이미 검증된 사용자"를 받기만 한다.</p></div>
+
+<h3>② ETL — 더러운 외부 데이터가 깨끗해지는 길</h3>
+<pre><code>POST /api/admin/etl/run?pages=10 (ROLE_ADMIN)
+ → TmdbClient: 인기 영화 목록 → 상세 200건 (호출 간 60ms 간격, 429면 지수 백오프)
+ → 원본을 먼저 raw_content에 보관   ← 정제에 실패해도 재수집 불필요 ("수집은 비싸다")
+ → ContentValidator: 필수값·정합성 검사 (미개봉작? runtime=0?)
+    위반 → rejected_records에 사유와 함께 격리 (버리지 않는다 — 재처리 가능)
+    통과 → ContentTransformer 정제 → contents 저장 (tmdbId 기준 upsert = 재실행 멱등)
+ → QualityReport 1행: 수집/적재/격리/사유별 카운트   ← "몇 건이 왜 걸러졌나"가 숫자로 남음</code></pre>
+<p>실측: 200건 중 4건 격리(미개봉작 2·runtime=0 2), 재실행 시 inserted=0.</p>
+
+<h3>③ 반응 등록 — 대량 쓰기의 관문</h3>
+<pre><code>POST /api/sessions/{sessionId}/reactions  [{clientEventId, type, offsetSec}, ...최대 500]
+ → 세션 존재? (404) → 내 세션? (403 — 남의 세션에 반응 조작 금지)
+ → offsetSec이 콘텐츠 길이 안? (400) → 반응 유형이 enum에? (400)
+ → Mongo 저장. clientEventId 유니크 인덱스가 중복이면 튕겨냄 → skipped로 카운트</code></pre>
+<div class="box box-tip"><p>핵심 감각 두 개: <strong>검증은 경계에서</strong> (일단 저장하고 나중에
+거르는 게 아니라 문 앞에서 거른다), 그리고 <strong>멱등</strong> — 네트워크가 끊겨 클라이언트가
+재전송해도 clientEventId가 같으면 중복 저장이 안 된다. 시연·시드·API 세 경로가 전부 같은
+멱등 규칙을 쓴다.</p></div>
+
+<h3>④ 집계와 검출 — 점 12만 개가 구간 2개가 되는 과정</h3>
+<pre><code>POST /api/admin/contents/1/aggregate (ROLE_ADMIN)
+ → Mongo에서 그 콘텐츠 이벤트 전부 로드 ((contentId,offsetSec) 인덱스를 타고)
+ → Aggregator: 10초 버킷별 유형별 카운트 (offsetSec/10*10 — 정수 나눗셈)
+ → HighlightDetector: 이동평균(우연한 튐 완화) → z-score(얼마나 유별난가) ≥ 2.0 → 연속 구간 병합
+ → 한 트랜잭션: segment_stats delete+insert (전량 재계산 = 몇 번 돌려도 같음), highlights 갱신
+ → @CacheEvict: 그 콘텐츠 타임라인 캐시 무효화</code></pre>
+<p>왜 "요청 시 계산"이 아니라 "미리 집계"인가 — 조회는 자주, 집계는 가끔이기 때문.
+원본(fact, Mongo)과 요약(mart, PG)을 나누는 데이터 마트 설계의 축소판이다.</p>
+
+<h3>⑤ 타임라인 조회 — 캐시의 두 갈래</h3>
+<pre><code>GET /api/contents/1/timeline (공개)
+ → @Cacheable("timeline") 캐시 확인
+    히트: Redis에서 바로 반환 (p50 22.4ms) — DB 안 감
+    미스: segment_stats 조회(작은 마트 — 풀스캔도 0.5ms) → 응답 만들고 Redis에 저장 (516ms)
+ → 대시보드(/)는 이 API와 highlights를 fetch해서 SVG 차트로 그린다</code></pre>
+
+<h2 id="s5">5. 전체를 관통하는 4가지 원칙</h2>
+<ol>
+  <li><strong>모든 쓰기 경로는 멱등</strong> — ETL은 upsert, 반응은 clientEventId, 집계는 전량
+  재계산, 시드는 콘텐츠 단위 스킵. "실패하면 그냥 다시 실행"이 언제나 안전한 시스템.</li>
+  <li><strong>검증은 경계에서, 실패는 격리로</strong> — API 검증 5종은 문 앞에서 400/403을,
+  ETL 위반은 버리지 않고 rejected_records로. 나쁜 데이터가 안쪽 계산에 도달하지 못한다.</li>
+  <li><strong>원본과 요약의 분리 (fact/mart)</strong> — 무거운 계산은 배치가, 조회는 읽기만.
+  캐시는 그 위의 3층.</li>
+  <li><strong>실측 없이 주장 없음</strong> — 인덱스 효과·검출 정확도·캐시 배수 전부 심은 정답과
+  explain으로 측정했고, 예방이 성공한 것(OOM 0회)도 dmesg 빈 출력으로 남겼다. 숫자의 출처를
+  언제나 댈 수 있다.</li>
+</ol>
+
+<h2 id="s6">6. 숫자로 보는 프로젝트 (전부 실측)</h2>
+<div class="table-wrap">
+<table>
+  <thead><tr><th>무엇</th><th>숫자</th><th>어디서 나왔나</th></tr></thead>
+  <tbody>
+    <tr><td>인덱스 효과</td><td>스캔 1,205,642→239건(1/5,044) · API p95 9,280→2,367ms</td><td>120만 건 시드 후 explain·20회 반복 측정 (로그 6호)</td></tr>
+    <tr><td>검출 정확도</td><td>심은 정답 피크 2/2 = 100%</td><td>시뮬레이터에 정답을 심고 채점 (day4)</td></tr>
+    <tr><td>캐시 효과</td><td>미스 516ms → 히트 p50 22.4ms (~23배)</td><td>미스·히트·무효화 세 경로 실측 (로그 5호)</td></tr>
+    <tr><td>ETL 품질</td><td>200건 중 4건 자동 격리 · 재실행 멱등</td><td>TMDB 실수집 (day2)</td></tr>
+    <tr><td>운영</td><td>OOM 0회 (RAM 1GB, 컨테이너 4) · 트러블슈팅 로그 8건</td><td>EC2 배포·장애 주입 (로그 7·8호)</td></tr>
+  </tbody>
+</table>
+</div>
+
+<h2 id="s7">7. 면접 대비 — 종합 질문 스크립트</h2>
+
+<p><strong>"프로젝트를 설명해 보세요" (2분 버전)</strong></p>
+<blockquote><p>시청자 반응으로 영상의 하이라이트를 자동 검출하는 백엔드입니다. TMDB에서 콘텐츠를
+수집·검증하는 ETL, 시청 반응을 대량으로 받는 수집 API, 10초 버킷 집계와 z-score 검출,
+Redis 캐시 서빙까지 데이터 파이프라인 전체를 만들었습니다. 저장소는 데이터 성격에 따라
+셋을 나눴는데 — 관계·트랜잭션이 필요한 것은 PostgreSQL, 형태가 진화하는 대량 이벤트는
+MongoDB, 반복 조회는 Redis — 그 대가인 교차 저장소 정합성은 저장 시점 애플리케이션 검증으로
+책임졌습니다. 120만 건 실측으로 인덱스 효과를 스캔량 1/5,044로 확인했고, EC2에 Terraform으로
+배포해 대시보드까지 운영 중입니다.</p></blockquote>
+
+<p><strong>"기술 선택 중 후회하는 것?"</strong> — 정직 카드: serverSelectionTimeout 기본 30초
+(장애 주입에서 사용자는 에러보다 무응답을 먼저 겪는다는 걸 배움), ddl-auto=update(운영이면
+Flyway). 후회를 아는 것이 성장 증거다.</p>
+<p><strong>"어디를 제일 잘했다고 생각하나?"</strong> — 순수 로직 분리(테스트 mock 0개)와
+"정답을 심고 채점하는" 시뮬레이터 설계. 성능 주장을 전부 실측으로 만든 습관.</p>
+<p><strong>"확장한다면 첫 병목은?"</strong> — 반응 쓰기가 초당 수백 건을 넘으면 개별 save→벌크,
+그다음 큐(전환 기준을 문서에 적어둠). 집계는 콘텐츠당 수십만 건부터 증분 전환.</p>
+
+<h2 id="s8">8. 스스로 확인하기</h2>
+<ol>
+  <li>저장소 셋의 역할을 데이터 성격(장부/일기장/메모지)으로 설명할 수 있나? 그 대가는?</li>
+  <li>패키지를 기술 계층이 아니라 도메인으로 나눈 이유는?</li>
+  <li>순수 로직 5개를 Spring 밖으로 뺀 이유와, 그 덕에 테스트가 얻은 것은?</li>
+  <li>로그인 후 보호 API 호출 시, 인증은 코드의 어느 단계에서 끝나나? 컨트롤러가 모르는 이유는?</li>
+  <li>ETL에서 원본을 "먼저" 보관하는 이유는? ("수집은 비싸고 정제는 싸다")</li>
+  <li>멱등이 네 군데(ETL·반응·집계·시드)에서 각각 어떤 장치로 구현됐나?</li>
+  <li>"요청 시 계산" 대신 "미리 집계"를 택한 판단 기준은?</li>
+  <li>캐시 무효화의 주 경로와 안전망은 각각 무엇인가?</li>
+  <li>이 프로젝트의 숫자 5개를 출처와 함께 말할 수 있나?</li>
+</ol>
+
+<hr>
+
+<h2 id="s9">더 깊이 — 부분별 상세 가이드 (6부작)</h2>
+<div class="table-wrap">
+<table>
+  <thead><tr><th>순서</th><th>문서</th><th>다루는 것</th></tr></thead>
+  <tbody>
+    <tr><td>1</td><td><a href="JWT-구현-가이드.md">JWT-구현-가이드</a></td><td>토큰 발급·검증·필터 체인</td></tr>
+    <tr><td>2</td><td><a href="ETL-구현-가이드.md">ETL-구현-가이드</a></td><td>수집·검증·격리·품질 리포트</td></tr>
+    <tr><td>3</td><td><a href="반응수집-구현-가이드.md">반응수집-구현-가이드</a></td><td>검증 5종·멱등·시뮬레이터</td></tr>
+    <tr><td>4</td><td><a href="집계검출캐시-구현-가이드.md">집계검출캐시-구현-가이드</a></td><td>버킷·z-score·캐시 3경로</td></tr>
+    <tr><td>5</td><td><a href="시드인덱스-구현-가이드.md">시드인덱스-구현-가이드</a></td><td>벌크 시드·B-트리·explain</td></tr>
+    <tr><td>6</td><td><a href="배포-구현-가이드.md">배포-구현-가이드</a></td><td>컨테이너·Terraform·EC2·보안</td></tr>
+  </tbody>
+</table>
+</div>
+<p>트러블슈팅 로그 8건(<a href="troubleshooting/">troubleshooting/</a>)은 "실제로 부딪힌 문제"의
+기록 — 면접 직전에 훑기 좋다.</p>
+
+</main>
+</body>
+</html>
