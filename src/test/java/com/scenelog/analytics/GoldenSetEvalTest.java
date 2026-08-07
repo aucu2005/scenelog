@@ -108,9 +108,9 @@ class GoldenSetEvalTest {
         // 구조 불변식 — 시나리오 정의가 스펙 §3과 일치하는가 (17피크 × 10시드)
         assertThat(totalAnswers).isEqualTo(170);
 
-        // ── 측정값 고정 (Task 3에서 실측 후 아래 주석을 실제 assert로 교체) ──
-        // assertThat(tp).isEqualTo(???);
-        // assertThat(fp).isEqualTo(???);
-        // assertThat(found).isEqualTo(???);
+        // 측정값 고정 (2026-08-07 실측) — 검출기 상수를 바꾸면 여기가 깨진다 (회귀 방지)
+        assertThat(tp).isEqualTo(184);
+        assertThat(fp).isEqualTo(398);
+        assertThat(found).isEqualTo(167);
     }
 }
