@@ -21,9 +21,10 @@ public class HighlightDetector {
      * 골든셋 실측(2026-08-07)에서 FP 398건이 무피크·약한 신호 콘텐츠에 집중된 원인이
      * z-score의 상대성(절대 높이 하한 부재)으로 규명되어 도입 — 스펙 detector-v2-min-lift.
      * 0이면 하한 비활성 = v1(ZSCORE_V1)과 동일 동작.
-     * 값은 임시 0.0 — 스윕 선정(튜닝 시드 1~10, 스펙 §4) 후 Task 3에서 갱신된다.
+     * 값은 튜닝 시드(1~10) 스윕에서 "재현율 ≥97%(발견 ≥165/170) 유지 중 정밀도 최대" 기준으로 선정 =
+     * k=2.5 (정밀도 98.0%, 발견 167/170) — build/reports/min-lift-sweep.md.
      */
-    public static final double DEFAULT_MIN_LIFT = 0.0;
+    public static final double DEFAULT_MIN_LIFT = 2.5;
 
     private final double minLift;
 

@@ -34,4 +34,22 @@ class GoldenSetEvalTest {
         assertThat(r.fp()).isEqualTo(398);
         assertThat(r.found()).isEqualTo(167);
     }
+
+    @Test
+    void 골든셋_v2_검증시드_정밀도_재현율_고정() throws Exception {
+        // 공식 숫자 — 선정에 쓰지 않은 검증 시드 11~20 (스펙 detector-v2 §4-3)
+        var r = GoldenSetHarness.evaluate(new HighlightDetector(), GoldenSetHarness.VALIDATION_SEEDS);
+
+        String report = GoldenSetHarness.reportTable(r);
+        System.out.println(report);
+        Files.createDirectories(Path.of("build/reports"));
+        Files.writeString(Path.of("build/reports/golden-set-eval-v2.md"), report);
+
+        assertThat(r.totalAnswers()).isEqualTo(170);
+
+        // 측정값 고정 (2026-08-07 실측, 검증 시드 11~20)
+        assertThat(r.tp()).isEqualTo(195);
+        assertThat(r.fp()).isEqualTo(3);
+        assertThat(r.found()).isEqualTo(166);
+    }
 }
