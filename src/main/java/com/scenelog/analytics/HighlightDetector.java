@@ -16,6 +16,25 @@ public class HighlightDetector {
     public static final double Z_THRESHOLD = 2.0;
     static final int MIN_BUCKETS = 6;         // 이하면 통계가 무의미 → 빈 결과
 
+    /**
+     * 절대 하한 배수 — 스무딩 값이 (전체 평균 × minLift) 이상이어야 하이라이트 후보다.
+     * 골든셋 실측(2026-08-07)에서 FP 398건이 무피크·약한 신호 콘텐츠에 집중된 원인이
+     * z-score의 상대성(절대 높이 하한 부재)으로 규명되어 도입 — 스펙 detector-v2-min-lift.
+     * 0이면 하한 비활성 = v1(ZSCORE_V1)과 동일 동작.
+     * 값은 임시 0.0 — 스윕 선정(튜닝 시드 1~10, 스펙 §4) 후 Task 3에서 갱신된다.
+     */
+    public static final double DEFAULT_MIN_LIFT = 0.0;
+
+    private final double minLift;
+
+    public HighlightDetector() {
+        this(DEFAULT_MIN_LIFT);
+    }
+
+    public HighlightDetector(double minLift) {
+        this.minLift = minLift;
+    }
+
     public List<HighlightWindow> detect(SortedMap<Integer, Integer> totalsByBucket, int bucketSizeSec) {
         int n = totalsByBucket.size();
         if (n < MIN_BUCKETS) return List.of();
@@ -54,7 +73,7 @@ public class HighlightDetector {
         double windowMaxZ = 0;
         for (int k = 0; k < n; k++) {
             double z = (smoothed[k] - mean) / std;
-            if (z >= Z_THRESHOLD) {
+            if (z >= Z_THRESHOLD && smoothed[k] >= mean * minLift) {
                 if (windowStart < 0) { windowStart = starts[k]; windowMaxZ = z; }
                 else windowMaxZ = Math.max(windowMaxZ, z);
             } else if (windowStart >= 0) {

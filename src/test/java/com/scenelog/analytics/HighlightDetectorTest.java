@@ -67,4 +67,24 @@ class HighlightDetectorTest {
                     assertThat(w.startSec()).isBetween(answer.startSec() - 50, answer.startSec() + 50));
         }
     }
+
+    @Test
+    void 절대량이_하한_미달이면_z가_넘어도_검출하지_않는다() {
+        // 낮은 분산 위의 작은 융기: 스무딩 후 z≈2.7로 임계값(2.0)은 넘지만
+        // 절대량은 평균의 1.1배뿐 — v2의 하한(minLift=2.0)이 걸러야 한다.
+        TreeMap<Integer, Integer> smallBump = buckets(
+                10, 10, 10, 10, 10, 10, 10, 10, 10, 12, 12, 10, 10, 10, 10, 10, 10, 10, 10, 10);
+        assertThat(new HighlightDetector(0).detect(smallBump, 10)).hasSize(1);   // 하한 없으면 잡힘 = z는 실제로 넘는다
+        assertThat(new HighlightDetector(2.0).detect(smallBump, 10)).isEmpty();  // 하한이 걸러낸다
+    }
+
+    @Test
+    void minLift_0은_하한_비활성_v1_동작이다() {
+        // v1 대조: 기존 '명확한 스파이크' 케이스와 동일 결과 (smoothed >= mean*0 은 항상 참)
+        List<HighlightWindow> result = new HighlightDetector(0).detect(
+                buckets(4, 5, 4, 6, 5, 4, 5, 6, 4, 5, 60, 55, 5, 4, 6, 5, 4, 5, 6, 5), 10);
+        assertThat(result).hasSize(1);
+        assertThat(result.get(0).startSec()).isLessThanOrEqualTo(100);
+        assertThat(result.get(0).endSec()).isGreaterThanOrEqualTo(120);
+    }
 }
