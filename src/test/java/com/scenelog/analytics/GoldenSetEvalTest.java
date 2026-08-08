@@ -47,7 +47,7 @@ class GoldenSetEvalTest {
 
         assertThat(r.totalAnswers()).isEqualTo(170);
 
-        // 측정값 고정 (2026-08-07 실측, 검증 시드 11~20)
+        // 측정값 고정 (2026-08-09 실측, 검증 시드 11~20)
         assertThat(r.tp()).isEqualTo(195);
         assertThat(r.fp()).isEqualTo(3);
         assertThat(r.found()).isEqualTo(166);

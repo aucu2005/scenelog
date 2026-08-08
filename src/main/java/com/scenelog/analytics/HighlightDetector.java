@@ -5,7 +5,7 @@ import java.util.List;
 import java.util.SortedMap;
 
 /**
- * 버킷 밀도 → 중심 이동평균 → z-score 피크 (기획서 §7, method=ZSCORE_V1).
+ * 버킷 밀도 → 중심 이동평균 → z-score 피크 (기획서 §7, method=ZSCORE_V2 (minLift=0이면 v1 동작)).
  *
  * <p>"AI"가 아니라 통계다: 평균에서 몇 표준편차나 벗어났는가(z-score)로 "유별난 구간"을 찾는다.
  * 상수 시작값은 여기 고정하고, EDA(day7) 결과로 조정할 때는 근거를 문서화한다.

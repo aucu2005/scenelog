@@ -27,7 +27,7 @@ public class TimelineController {
     }
 
     @GetMapping("/highlights")
-    @Operation(summary = "하이라이트 구간", description = "z-score 검출 결과 (method=ZSCORE_V1)")
+    @Operation(summary = "하이라이트 구간", description = "z-score 검출 결과 (method=ZSCORE_V2)")
     public List<HighlightResponse> highlights(@PathVariable Long contentId) {
         return timelineService.highlights(contentId);
     }

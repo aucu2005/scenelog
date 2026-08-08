@@ -1,6 +1,6 @@
 # 검출기 v2 — 절대 하한(MIN_LIFT) 결합으로 정밀도 개선 설계
 
-> 작성: 2026-08-07 · 상태: 승인됨 · 작업 브랜치: `feature/detector-v2-min-lift` (main 무접촉)
+> 작성: 2026-08-09 · 상태: 승인됨 · 작업 브랜치: `feature/detector-v2-min-lift` (main 무접촉)
 
 ## 1. 배경
 
