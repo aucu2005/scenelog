@@ -23,6 +23,8 @@ import java.time.OffsetDateTime;
 public class Highlight {
 
     public static final String METHOD_ZSCORE_V1 = "ZSCORE_V1";
+    /** v2 = v1(z-score) + 절대 하한(minLift) — 스펙 detector-v2-min-lift. V1 행은 보존·비교용 */
+    public static final String METHOD_ZSCORE_V2 = "ZSCORE_V2";
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)

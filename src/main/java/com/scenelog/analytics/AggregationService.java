@@ -65,14 +65,14 @@ public class AggregationService {
                 .map(e -> new SegmentStat(contentId, e.getKey(), e.getValue()))
                 .toList());
 
-        // 검출 — 같은 방식(ZSCORE_V1)의 이전 결과만 교체
+        // 검출 — 같은 방식(ZSCORE_V2)의 이전 결과만 교체. V1 이력은 보존 (method 버저닝)
         TreeMap<Integer, Integer> totals = buckets.entrySet().stream().collect(Collectors.toMap(
                 Map.Entry::getKey, e -> e.getValue().total(), (a, b) -> a, TreeMap::new));
         List<HighlightWindow> windows = detector.detect(totals, BUCKET_SIZE_SEC);
 
-        highlightRepository.deleteAllByContentIdAndMethod(contentId, Highlight.METHOD_ZSCORE_V1);
+        highlightRepository.deleteAllByContentIdAndMethod(contentId, Highlight.METHOD_ZSCORE_V2);
         highlightRepository.saveAll(windows.stream()
-                .map(w -> new Highlight(contentId, w, Highlight.METHOD_ZSCORE_V1))
+                .map(w -> new Highlight(contentId, w, Highlight.METHOD_ZSCORE_V2))
                 .toList());
 
         log.info("집계 완료 — contentId={}, 이벤트 {}건 → 버킷 {}개, 하이라이트 {}개",

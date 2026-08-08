@@ -36,7 +36,7 @@ public class TimelineService {
 
     @Transactional(readOnly = true)
     public List<HighlightResponse> highlights(Long contentId) {
-        return highlightRepository.findByContentIdOrderByStartSec(contentId)
+        return highlightRepository.findByContentIdAndMethodOrderByStartSec(contentId, Highlight.METHOD_ZSCORE_V2)
                 .stream().map(HighlightResponse::from).toList();
     }
 }
