@@ -52,7 +52,10 @@ public class SecurityConfig {
                         // 관리자 전용 — ETL 트리거·품질 리포트·집계·시뮬레이터 (기획서 §6)
                         // 무인증이면 외부에서 ETL을 무한 트리거할 수 있으므로 반드시 막는다
                         .requestMatchers("/api/admin/**").hasRole("ADMIN")
-                        .requestMatchers(org.springframework.http.HttpMethod.GET, "/api/contents/**").permitAll()
+                        .requestMatchers(org.springframework.http.HttpMethod.GET,
+                                "/api/contents/**",
+                                "/api/batch-runs"     // 배치 실행 이력 공개 뷰 — 대시보드용, 오류는 타입까지만 (2026-09-14)
+                        ).permitAll()
                         .anyRequest().authenticated())
                 .addFilterBefore(jwtFilter, UsernamePasswordAuthenticationFilter.class);
 

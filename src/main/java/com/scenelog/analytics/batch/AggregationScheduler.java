@@ -1,6 +1,5 @@
 package com.scenelog.analytics.batch;
 
-import com.scenelog.analytics.AggregationService;
 import com.scenelog.reaction.ReactionEvent;
 import lombok.RequiredArgsConstructor;
 import org.slf4j.Logger;
@@ -31,7 +30,7 @@ public class AggregationScheduler {
     private static final Logger log = LoggerFactory.getLogger(AggregationScheduler.class);
 
     private final MongoTemplate mongoTemplate;
-    private final AggregationService aggregationService;
+    private final AggregationJobRunner jobRunner;
 
     /** 한 번의 정기 실행 요약 — 로그 한 줄과 테스트의 단언 대상 */
     public record RunSummary(int targets, int succeeded, int failed, long elapsedMs) {}
@@ -51,7 +50,7 @@ public class AggregationScheduler {
         int failed = 0;
         for (Long contentId : targets) {
             try {
-                aggregationService.aggregate(contentId);
+                jobRunner.run(contentId, BatchTrigger.SCHEDULED);   // 실행 이력 SCHEDULED 행이 남는다
                 succeeded++;
             } catch (RuntimeException e) {
                 failed++;

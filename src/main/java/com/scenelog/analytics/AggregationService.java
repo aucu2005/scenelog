@@ -20,6 +20,7 @@ import java.util.stream.Collectors;
 
 /**
  * 집계 오케스트레이션: 원본 이벤트 → 버킷 집계 → 하이라이트 검출 → 저장 → 캐시 무효화.
+ * 호출은 {@code analytics.batch.AggregationJobRunner}를 거친다(실행 이력 batch_runs 기록, 2026-09-14).
  *
  * <p><b>멱등 = 전량 재계산 + 덮어쓰기</b> (기획서 §5.1):
  * 해당 콘텐츠의 기존 집계를 지우고 처음부터 다시 계산해 넣는다.
@@ -51,7 +52,7 @@ public class AggregationService {
      */
     @Transactional
     @CacheEvict(value = RedisConfig.CACHE_TIMELINE, key = "#contentId")
-    public Map<String, Object> aggregate(Long contentId) {
+    public AggregationResult aggregate(Long contentId) {
         if (!contentRepository.existsById(contentId)) {
             throw new ApiException(HttpStatus.NOT_FOUND, "콘텐츠를 찾을 수 없습니다: " + contentId);
         }
@@ -78,13 +79,6 @@ public class AggregationService {
         log.info("집계 완료 — contentId={}, 이벤트 {}건 → 버킷 {}개, 하이라이트 {}개",
                 contentId, events.size(), buckets.size(), windows.size());
 
-        return Map.of(
-                "contentId", contentId,
-                "events", events.size(),
-                "buckets", buckets.size(),
-                "highlights", windows.stream()
-                        .map(w -> Map.of("startSec", w.startSec(), "endSec", w.endSec(),
-                                "score", Math.round(w.score() * 1000) / 1000.0))
-                        .toList());
+        return new AggregationResult(contentId, events.size(), buckets.size(), windows);
     }
 }

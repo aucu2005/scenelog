@@ -41,6 +41,10 @@
   tbody td{padding:12px 14px;border-bottom:1px solid #F4F4F5}
   .badge{display:inline-flex;align-items:center;gap:6px;background:var(--green-bg);color:var(--green-fg);
        font-size:12px;border-radius:999px;padding:5px 12px}
+  .st{display:inline-block;font-size:12px;border-radius:999px;padding:3px 10px;font-weight:600}
+  .st.ok{background:var(--green-bg);color:var(--green-fg)}
+  .st.bad{background:#FEE2E2;color:#991B1B}
+  .st.run{background:#F4F4F5;color:var(--t2)}
   #statusBanner{display:none;background:#FEF2F2;border:1px solid #FECACA;color:#991B1B;
        border-radius:12px;padding:14px 18px;font-size:13px;margin-bottom:24px}
   footer{font-size:11px;color:var(--t2);margin-top:24px}
@@ -60,7 +64,7 @@
   <div id="statusBanner"></div>
   <div class="stats">
     <div class="card stat"><div class="lb">인덱스 스캔 절감</div><div class="vl">1/5,044</div><div class="nt">1,205,642건 → 239건 (120만 건 실측)</div></div>
-    <div class="card stat"><div class="lb">하이라이트 검출</div><div class="vl">2/2 · 100%</div><div class="nt">각본에 심은 정답 피크 전부 검출</div></div>
+    <div class="card stat"><div class="lb">하이라이트 검출 (v2)</div><div class="vl">정밀도 98.5% · 재현율 97.6%</div><div class="nt">골든셋 120회(12구조×10시드, 검증 시드) · v1 정밀도 31.6% → v2</div></div>
     <div class="card stat"><div class="lb">캐시 히트 p50</div><div class="vl">22.4ms</div><div class="nt">미스 516ms 대비 약 23배</div></div>
   </div>
   <div class="card gap">
@@ -73,6 +77,11 @@
     <div class="cardTitle"><h2>검출된 하이라이트</h2><span class="badge" id="latencyBadge">측정 중…</span></div>
     <table><thead><tr><th>구간 (재생 위치)</th><th>길이</th><th>score</th><th>method</th></tr></thead>
     <tbody id="hlBody"></tbody></table>
+  </div>
+  <div class="card" style="margin-top:24px">
+    <div class="cardTitle"><h2>최근 배치 실행</h2><span class="sub">집계 1회 = batch_runs 1행 · 실패 행도 남는다</span></div>
+    <table><thead><tr><th>시작</th><th>대상</th><th>트리거</th><th>상태</th><th>이벤트 → 버킷 → 하이라이트</th><th>소요</th><th>오류</th></tr></thead>
+    <tbody id="runBody"><tr><td colspan="7" style="color:var(--t2)">불러오는 중…</td></tr></tbody></table>
   </div>
   <footer>SceneLog — 개인 학습 프로젝트 · 반응 데이터는 검출 채점용 시뮬레이터가 생성한 합성 데이터입니다 · 집계 결과는 Redis 캐시로 서빙됩니다</footer>
 </div>
@@ -134,7 +143,22 @@ function renderTable(){
   $("latencyBadge").textContent=`⚡ 타임라인 응답 ${state.ms}ms`;
 }
 function render(){renderChart();renderTable();}
+const stCls={SUCCESS:"ok",FAILED:"bad",RUNNING:"run"};
+const pad2=n=>String(n).padStart(2,"0");
+const fmtTime=iso=>{const d=new Date(iso);return `${pad2(d.getMonth()+1)}-${pad2(d.getDate())} ${pad2(d.getHours())}:${pad2(d.getMinutes())}:${pad2(d.getSeconds())}`;};
+async function loadRuns(){
+  const body=$("runBody");
+  try{
+    const runs=await j("/api/batch-runs?limit=10");
+    body.innerHTML=runs.map(r=>`<tr><td>${fmtTime(r.startedAt)}</td><td>contentId ${r.contentId??"-"}</td><td>${r.triggeredBy}</td>
+      <td><span class="st ${stCls[r.status]||"run"}">${r.status}</span></td>
+      <td>${r.eventCount??"-"} → ${r.bucketCount??"-"} → ${r.highlightCount??"-"}</td>
+      <td>${r.durationMs!=null?r.durationMs+"ms":"-"}</td><td>${r.errorType?`<code>${r.errorType}</code>`:"-"}</td></tr>`).join("")
+      ||'<tr><td colspan="7" style="color:var(--t2)">아직 실행 이력이 없습니다 — Swagger에서 집계를 실행해 보세요</td></tr>';
+  }catch(e){body.innerHTML='<tr><td colspan="7" style="color:var(--t2)">실행 이력을 불러오지 못했습니다</td></tr>';}
+}
 (async()=>{
+  loadRuns();
   try{
     state.contents=await loadContents();
     const sel=$("contentSelect");
