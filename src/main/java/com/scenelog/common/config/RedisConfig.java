@@ -24,6 +24,14 @@ import java.util.List;
  *
  * <p>Caffeine(로컬 캐시)이 아니라 Redis인 이유: 캐시를 프로세스 밖에 두면
  * 인스턴스가 늘어나도 캐시 일관성이 유지된다 (기획서 §4 설계원칙 4).
+ *
+ * <p><b>evict와 커밋의 순서</b>(2026-09-14): {@code AggregationService.aggregate()}에는
+ * {@code @Transactional}과 {@code @CacheEvict}가 함께 있다. evict가 커밋보다 먼저 실행되는지는
+ * AOP 프록시 순서에 달려 있어 문서화된 보장이 아니다 — 실측(진단 테스트)에서도 evict는 트랜잭션과
+ * 무관하게 즉시 나갔다. {@code transactionAware()}로 캐시 쓰기·삭제를 커밋 이후로 고정했다.
+ * 검증은 {@code CacheEvictAfterCommitTest}(커밋 전 잔존 · 커밋 후 삭제 · 롤백 시 미삭제).
+ * 참고: Spring Data Redis 4.1의 {@code DefaultRedisCacheWriter}는 put/evict를 비동기로 보내
+ * 서버 반영 전에 리턴한다 — 커밋 직후에도 수 ms의 창이 있으며, 이것도 TTL 안전망 범위다.
  */
 @Configuration
 @EnableCaching
@@ -56,6 +64,10 @@ public class RedisConfig {
         return RedisCacheManager.builder(connectionFactory)
                 .withCacheConfiguration(CACHE_TIMELINE, timelineConfig)
                 .cacheDefaults(timelineConfig)
+                // evict/put을 트랜잭션 afterCommit으로 미룬다 — 커밋 전 삭제로 옛 값이 재적재되는 창을 없앤다.
+                // 트랜잭션이 없으면 즉시 실행, 롤백이면 실행하지 않는다 (TransactionAwareCacheDecorator).
+                // 남는 한계: 커밋 직전에 시작한 조회가 삭제 이후에 옛 값을 쓰는 경쟁 — TTL 10분이 안전망.
+                .transactionAware()
                 .build();
     }
 }
