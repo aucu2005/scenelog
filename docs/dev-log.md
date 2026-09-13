@@ -180,3 +180,68 @@
   v1·v2 실측값 모두 assert 고정(전후가 테스트 코드에 영구 문서화).
 - **스펙·계획**: docs/superpowers/specs/2026-08-07-detector-v2-min-lift-design.md ·
   docs/superpowers/plans/2026-08-07-detector-v2-min-lift.md
+
+## 2026-09-14 — 배치 운영 보강: 캐시 커밋 순서 · batch 프로파일 정기 집계 · 실행 이력 + README 동기화
+
+- **동기**: 지원 서류 수정계획서 §5. 서류·README·코드가 서로 다른 숫자를 말했다(테스트 34/40/45, 트러블슈팅
+  7/8, 가이드 6/7, 검출 2/2 vs 골든셋 v2). §5-5 판단 기준 적용 — 제출 목표(9/22)까지 여유가 있어 README 갱신 +
+  코드 보강 ②①③ 전부 진행, ShedLock·Airflow는 제외하고 한계로 기록. 브랜치 feature/batch-ops-readme-0914.
+  스펙·계획: docs/superpowers/specs/2026-09-14-batch-ops-readme-sync-design.md · plans/2026-09-14-batch-ops-readme-sync.md
+- **② 캐시 evict를 커밋 이후로** (`RedisConfig` 한 줄 `transactionAware()`):
+  - 실측(진단 테스트): 수정 전 evict는 트랜잭션과 **무관하게 즉시** 실행됐고, 롤백돼도 캐시가 지워졌다 —
+    "커밋 전 삭제 → 그 사이 조회가 옛 집계를 재적재 → TTL 10분간 옛 값" 창이 실제로 있었다.
+  - 테스트 3건(`CacheEvictAfterCommitTest`, 실제 Redis·PG): 커밋 전 잔존 / 커밋 후 삭제 / 롤백 시 미삭제 +
+    실제 `aggregate()`가 바깥 트랜잭션에 참여할 때도 커밋까지 대기. **수정 전 3/3 실패 → 수정 후 통과.**
+  - ★ 발견: Spring Data Redis 4.1 `DefaultRedisCacheWriter`는 **비동기 쓰기**(`asynchronousWrites`,
+    `AsyncCacheWriter.store/remove` → CompletableFuture) — put/evict가 서버 반영 전에 리턴한다. 처음 쓴
+    "put 직후 EXISTS" 단언이 간헐 실패한 원인. 단언은 Awaitility `during`/`atMost`로 바꿨다(실제 서버 상태 기준).
+  - 남는 한계(그대로 적음): 커밋 직전에 시작한 조회가 삭제 뒤 옛 값을 쓰는 경쟁 + 비동기 삭제의 수 ms 창 — TTL 안전망.
+- **① batch 프로파일 정기 집계** (`analytics.batch.BatchSchedulingConfig` + `AggregationScheduler`):
+  - `@Profile("batch")` — 기본 프로파일(데모·RAM 1GB)에는 빈 자체가 없다(테스트로 고정). `fixedDelay`라
+    120만 건 재집계가 주기보다 길어도 겹치지 않는다. 대상 = reaction_events distinct contentId(인덱스 접두).
+  - **로컬 실행 로그**(`--spring.profiles.active=batch --scenelog.batch.aggregate.fixed-delay=PT20S`,
+    04:12~04:53, **26회 순회**, 순회마다 51편 성공 51 · 실패 0, 순회당 74~76초 = 콘텐츠당 평균 1,488ms):
+
+    ```
+    04:12:24 [scheduling-1] 정기 집계 시작 — 대상 51편
+    04:13:39 [scheduling-1] 정기 집계 완료 — 대상 51편, 성공 51, 실패 0, 75670ms
+    04:13:59 [scheduling-1] 정기 집계 시작 — 대상 51편
+    04:15:16 [scheduling-1] 정기 집계 완료 — 대상 51편, 성공 51, 실패 0, 76372ms
+    04:15:36 [scheduling-1] 정기 집계 시작 — 대상 51편
+    04:16:51 [scheduling-1] 정기 집계 완료 — 대상 51편, 성공 51, 실패 0, 74767ms
+    ... (26회 반복, 마지막 완료 04:52:07 74217ms)
+    ```
+  - 다중 인스턴스 분산 락(ShedLock)은 **미적용** — 단일 인스턴스 전제, README 한계에 기록.
+- **③ 집계 실행 이력 `batch_runs`** (`BatchRun`·`BatchRunRecorder`·`AggregationJobRunner`·`BatchRunController`):
+  - 실행 1회 = 1행(job_name·content_id·triggered_by MANUAL/SCHEDULED·status·시각·소요·처리 건수·error_type·
+    error_message 500자). 기록은 **REQUIRES_NEW** — 집계 트랜잭션이 롤백돼도 실패 행이 남는다(테스트:
+    바깥 트랜잭션 rollbackOnly에도 FAILED 행 잔존). 관리자 API·스케줄러가 같은 러너를 지난다.
+  - 조회: `GET /api/batch-runs`(공개, 오류는 예외 타입까지) · `GET /api/admin/batch-runs`(메시지 포함).
+    공개 뷰에서 메시지를 뺀 이유 — 실제 실패 메시지에 `localhost:27017`처럼 내부 호스트가 들어 있었다.
+  - `AggregationService.aggregate()`는 Map → `AggregationResult` 레코드(응답 JSON은 `toResponse()`로 동일).
+  - **장애 주입 (기본 프로파일, 04:09~04:10)**: `docker stop scenelog-mongo` → `POST /aggregate` →
+    **30초 후 500**(serverSelectionTimeout) → 관리자 이력:
+
+    ```json
+    {"runId":4,"triggeredBy":"MANUAL","status":"FAILED","durationMs":30019,
+     "errorType":"DataAccessResourceFailureException",
+     "errorMessage":"Timed out while waiting for a server ... servers=[{address=localhost:27017, ... Connection refused ..."}
+    ```
+    공개 뷰는 같은 행에 `errorMessage: null`. `docker start scenelog-mongo`(healthy) → 재실행 200 →
+    `{"runId":5,"status":"SUCCESS","eventCount":1883,"durationMs":1019}`. 대시보드 '최근 배치 실행' 카드에
+    SUCCESS·FAILED·SUCCESS 순으로 보인다 — `docs/images/dashboard-batch-runs.png`.
+  - 26회 순회 뒤 표 상태: SCHEDULED SUCCESS 1,326 · MANUAL SUCCESS 2 · MANUAL FAILED 1 · RUNNING 0
+    (앱은 대기 구간에 종료해 RUNNING 잔존 행 없음).
+  - 후속(기록만): 프로세스가 집계 도중 강제 종료되면 RUNNING 행이 남는다 → 기동 시 정리 필요.
+    보존 정책 없음 — 10분 주기면 하루 51×144 = 7,344행 → 보존 기간·정리 배치 필요.
+- **README 9항목 반영**: 테스트 **56개**(45 + 이번 11, `./gradlew test` 전부 통과) · 트러블슈팅 8건 ·
+  가이드 6부작 + 종합 · 검출 v2 98.5%/97.6% · quality_reports를 PostgreSQL로(MongoDB는 rejected_records만) ·
+  "Spring Scheduling으로 충분" → 운영 절(정기 집계·실행 이력·캐시 순서·Actuator) · 서류 기준 태그
+  `submission-2026-09` · 데모 "가동 중" 삭제 → 로컬 10분 재현 절차 + 배포 이력 · 대시보드 타일 v2 숫자.
+  이력서 C-1 문구("이탈 위험" → "반응이 적은 구간, 이탈은 후속 검증")도 README에 같이 반영.
+- **어디다있소 README**(로컬 새 클론 `Project/daiso`, dev 12c2866): "최종 MVP 구조(2/25)" 절 커밋 —
+  코드 근거 재확인(requirements.txt 122행 주석, search_service.py 폴백, pipeline.py 환경변수 가드, chroma_db
+  커밋본, main의 docker-compose.prod.yml 4서비스). 검색 엔진 재측정 표는 gold.json 검수 전이라 대괄호
+  4곳([본인]·[별칭 / 코드 통일]·[해시]×2)을 남긴 채 **작업 트리에만**.
+- **환경 메모**: Docker Desktop 정상(8/9 고장 → 복구됨, 진단 대기였던 contextLoads 통과). Gradle 콘솔 출력은
+  cp949라 로그를 grep할 때는 `iconv -f cp949 -t utf-8` 후에.
